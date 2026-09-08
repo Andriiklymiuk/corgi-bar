@@ -13,7 +13,7 @@ jobs:
       MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Version from VERSION, skip when already tagged
