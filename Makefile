@@ -12,6 +12,8 @@ app: build
 	mkdir -p $(APP)/Contents/MacOS
 	cp $(BINARY) $(APP)/Contents/MacOS/corgi-bar
 	sed 's/__VERSION__/$(VERSION)/g' Resources/Info.plist > $(APP)/Contents/Info.plist
+	mkdir -p $(APP)/Contents/Resources
+	cp Resources/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
 	codesign --force --deep --sign - $(APP)
 	@echo "built $(APP) ($(VERSION))"
 
