@@ -33,7 +33,11 @@ const popover = () => `
   ${sessions.map(row).join("")}
   <hr>
   <div class="acct"><span class="path">~/.claude</span><span class="use">178.0M today · 1.6B week</span></div>
+  <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:55%;background:${green}"></i></span><span class="pct" style="color:${green}">55%</span><span class="at">5:10pm</span>
+    <span class="lbl">week</span><span class="bar"><i style="width:10%;background:${green}"></i></span><span class="pct" style="color:${green}">10%</span><span class="at">mon 9am</span></div>
   <div class="acct"><span class="chip">SP</span><span class="path">~/.claude-skp</span><span class="limit">resets 1:10pm (Europe/Kiev)</span></div>
+  <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:100%;background:${red}"></i></span><span class="pct" style="color:${red}">100%</span><span class="at">1:10pm</span>
+    <span class="lbl">week</span><span class="bar"><i style="width:64%;background:${amber}"></i></span><span class="pct" style="color:${amber}">64%</span><span class="at">thu 6am</span></div>
   <hr>
   <div class="remote">▸ Remote · 5 of 5 online</div>
   <hr>
@@ -70,6 +74,9 @@ const page = ({ needs = 2, mood = red, open = true, banner = true, width = 1920,
   .right{text-align:right}.status{font-size:9px;font-weight:700;letter-spacing:.3px}.elapsed{font-size:10px;opacity:.6}
   .acct{display:flex;align-items:center;gap:6px;padding:2px 4px;font-size:11px}.acct .path{opacity:.65;flex:1}.acct .use{font-size:10px;opacity:.6}.acct .limit{font-size:10px;font-weight:600;color:${blue}}
   .acct .chip{margin:0}
+  .bars{display:flex;align-items:center;gap:5px;padding:0 4px 4px 4px;font-size:9px}
+  .bars .lbl{width:24px;font-weight:600;opacity:.6}.bars .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}.bars .bar i{display:block;height:100%;border-radius:2px}
+  .bars .pct{width:30px;text-align:right;font-weight:600}.bars .at{opacity:.45;width:44px}
   .remote{font-size:11px;font-weight:600;padding:2px 4px}
   .talk{display:flex;align-items:center;gap:6px;padding:4px}.hot{margin-left:auto;font-size:11px;opacity:.6}
   .foot{display:flex;justify-content:space-between;font-size:11px;opacity:.7;padding:2px 4px}

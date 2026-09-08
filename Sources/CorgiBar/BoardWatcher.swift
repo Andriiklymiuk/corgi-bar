@@ -33,7 +33,13 @@ final class BoardWatcher: ObservableObject {
         statusFetchedAt = Date()
         DispatchQueue.global(qos: .utility).async {
             let r = Corgi.shared.run(["agent", "status", "--json"])
-            guard r.ok, let data = r.stdout.data(using: .utf8), let status = try? JSONDecoder().decode(AgentStatus.self, from: data) else { return }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom { d in
+                let raw = try d.singleValueContainer().decode(String.self)
+                guard let date = Board.parseDate(raw) else { throw DecodingError.dataCorruptedError(in: try d.singleValueContainer(), debugDescription: raw) }
+                return date
+            }
+            guard r.ok, let data = r.stdout.data(using: .utf8), let status = try? decoder.decode(AgentStatus.self, from: data) else { return }
             DispatchQueue.main.async { self.status = status }
         }
     }

@@ -282,17 +282,27 @@ struct AccountsView: View {
         if !accounts.isEmpty {
             Divider()
             ForEach(accounts) { a in
-                HStack(spacing: 6) {
-                    if !a.chip.isEmpty {
-                        Text(a.chip).font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
-                            .background(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        if !a.chip.isEmpty {
+                            Text(a.chip).font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
+                                .background(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary, lineWidth: 1))
+                        }
+                        Text(a.title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer()
+                        if let until = a.limitedUntil {
+                            Text(until).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(red: 0.36, green: 0.55, blue: 0.94))
+                        } else {
+                            Text("\(formatTokens(a.tokensToday)) today · \(formatTokens(a.tokensWeek)) week").font(.system(size: 10)).foregroundStyle(.secondary)
+                        }
                     }
-                    Text(a.title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                    Spacer()
-                    if let until = a.limitedUntil {
-                        Text(until).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(red: 0.36, green: 0.55, blue: 0.94))
+                    if let l = a.limits {
+                        HStack(spacing: 8) {
+                            LimitBar(label: "5h", window: l.fiveHour)
+                            LimitBar(label: "week", window: l.sevenDay)
+                        }
                     } else {
-                        Text("\(formatTokens(a.tokensToday)) today · \(formatTokens(a.tokensWeek)) week").font(.system(size: 10)).foregroundStyle(.secondary)
+                        Text("no usage snapshot — run /usage once under this account").font(.system(size: 9)).foregroundStyle(.tertiary)
                     }
                 }
                 .padding(.horizontal, 4)
@@ -337,5 +347,45 @@ struct RemoteView: View {
                 Text("Remote · \(online) of \(watcher.status.workspaces.count) online").font(.system(size: 11, weight: .semibold))
             }
         }
+    }
+}
+
+
+/// One rolling limit as /usage shows it: a thin bar, the percent, the reset time.
+struct LimitBar: View {
+    var label: String
+    var window: AgentStatus.Limits.Window
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(label).font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 26, alignment: .leading)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.12))
+                    Capsule().fill(color).frame(width: max(2, g.size.width * CGFloat(min(100, max(0, window.percent))) / 100))
+                }
+            }
+            .frame(height: 4)
+            Text("\(window.percent)%").font(.system(size: 9, weight: .semibold)).foregroundStyle(color).frame(width: 30, alignment: .trailing)
+            if let at = window.resetsAt {
+                Text(LimitBar.resetText(at)).font(.system(size: 9)).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var color: Color {
+        switch window.percent {
+        case 90...: return Color(red: 0.90, green: 0.28, blue: 0.30)
+        case 70..<90: return Color(red: 0.96, green: 0.65, blue: 0.14)
+        default: return Color(red: 0.19, green: 0.64, blue: 0.42)
+        }
+    }
+
+    /// "5:10pm" for today, "Tue 9am" further out.
+    static func resetText(_ at: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = Calendar.current.isDateInToday(at) ? "h:mma" : "EEE ha"
+        return f.string(from: at).lowercased()
     }
 }

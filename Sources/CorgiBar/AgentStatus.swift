@@ -18,15 +18,31 @@ struct AgentStatus: Decodable {
         var tokensToday: Int64
         var tokensWeek: Int64
     }
+    /// The /usage picture Claude Code last cached for one account.
+    struct Limits: Decodable {
+        struct Window: Decodable {
+            var percent: Int
+            var resetsAt: Date?
+        }
+        var fetchedAt: Date?
+        var fiveHour: Window
+        var sevenDay: Window
+    }
+    struct AccountLimits: Decodable {
+        var profile: String
+        var configDir: String?
+        var limits: Limits?
+    }
     var running: Bool = false
     var version: String?
     var workspaces: [Workspace] = []
     var usage: [Usage] = []
+    var accountLimits: [AccountLimits] = []
     var dashboardUrl: String?
 
     static let empty = AgentStatus()
 
-    enum CodingKeys: String, CodingKey { case running, version, workspaces, usage, dashboardUrl }
+    enum CodingKeys: String, CodingKey { case running, version, workspaces, usage, accounts, dashboardUrl }
     init() {}
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -34,6 +50,7 @@ struct AgentStatus: Decodable {
         version = try c.decodeIfPresent(String.self, forKey: .version)
         workspaces = try c.decodeIfPresent([Workspace].self, forKey: .workspaces) ?? []
         usage = try c.decodeIfPresent([Usage].self, forKey: .usage) ?? []
+        accountLimits = try c.decodeIfPresent([AccountLimits].self, forKey: .accounts) ?? []
         dashboardUrl = try c.decodeIfPresent(String.self, forKey: .dashboardUrl)
     }
 
@@ -45,6 +62,7 @@ struct AgentStatus: Decodable {
         var tokensToday: Int64
         var tokensWeek: Int64
         var limitedUntil: String?
+        var limits: Limits?
         var id: String { profile }
         var chip: String { profile == "default" ? "" : String(profile.prefix(2)).uppercased() }
         var title: String { profile == "default" ? "~/.claude" : (configDir as NSString).abbreviatingWithTildeInPath }
@@ -58,6 +76,11 @@ struct AgentStatus: Decodable {
             a.tokensToday += u.tokensToday
             a.tokensWeek += u.tokensWeek
             byProfile[profile] = a
+        }
+        for l in accountLimits {
+            var a = byProfile[l.profile] ?? Account(profile: l.profile, configDir: l.configDir ?? "", tokensToday: 0, tokensWeek: 0)
+            a.limits = l.limits
+            byProfile[l.profile] = a
         }
         for s in board.sessions where s.status == .limited {
             let profile = s.profile ?? "default"

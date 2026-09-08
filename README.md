@@ -8,7 +8,7 @@ opens a `claude` terminal in the window in front, under that folder's
 account. **Talk** (or `ctrl+alt+space` anywhere) dictates into the session
 in front of you: press to talk, press again to send.
 
-Below the sessions: one line per Claude account (`~/.claude`, `~/.claude-work`, …) with tokens today and this week, or the reset time when that account hit its usage limit. Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
+Below the sessions: one block per Claude account (`~/.claude`, `~/.claude-work`, …): tokens today and this week, and the same two bars `/usage` shows — the 5-hour window and the week, percent used and when each resets — read from what Claude Code last cached. When an account hit its limit, the reset time replaces the tokens. Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
 
 ![corgi-bar open in the menu bar: sessions with their state, accounts with token usage and a limit reset, remote sessions, Talk](docs/media/hero.png)
 

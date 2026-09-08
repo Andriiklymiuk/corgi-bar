@@ -47,8 +47,13 @@ final class BoardTests: XCTestCase {
     }
 
     func testAccountsGroupUsageByConfigDirAndCarryTheLimit() throws {
-        let json = #"{"running":true,"version":"1.21.40","workspaces":[{"workspaceId":"corgi","running":true}],"usage":[{"workspaceId":"corgi","configDir":"","tokensToday":10,"tokensWeek":100},{"workspaceId":"idid","configDir":"","tokensToday":5,"tokensWeek":50},{"workspaceId":"onboarding","configDir":"/Users/me/.claude-skp","tokensToday":7,"tokensWeek":70}],"dashboardUrl":"https://x.example"}"#
-        let status = try JSONDecoder().decode(AgentStatus.self, from: json.data(using: .utf8)!)
+        let json = #"{"running":true,"version":"1.21.41","workspaces":[{"workspaceId":"corgi","running":true}],"usage":[{"workspaceId":"corgi","configDir":"","tokensToday":10,"tokensWeek":100},{"workspaceId":"idid","configDir":"","tokensToday":5,"tokensWeek":50},{"workspaceId":"onboarding","configDir":"/Users/me/.claude-skp","tokensToday":7,"tokensWeek":70}],"accounts":[{"profile":"default","limits":{"fetchedAt":"2026-09-08T13:35:22.38+03:00","fiveHour":{"percent":55,"resetsAt":"2026-09-08T14:10:00.244Z"},"sevenDay":{"percent":10,"resetsAt":"2026-09-15T06:00:00.244018Z"}}},{"profile":"skp","configDir":"/Users/me/.claude-skp"}],"dashboardUrl":"https://x.example"}"#
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { d in
+            let raw = try d.singleValueContainer().decode(String.self)
+            return Board.parseDate(raw) ?? Date.distantPast
+        }
+        let status = try decoder.decode(AgentStatus.self, from: json.data(using: .utf8)!)
         var board = try fixture()
         board.sessions[2].status = .limited
         board.sessions[2].profile = "skp"
@@ -59,6 +64,10 @@ final class BoardTests: XCTestCase {
         XCTAssertEqual(accounts[0].chip, "")
         XCTAssertEqual(accounts[1].chip, "SK")
         XCTAssertEqual(accounts[1].limitedUntil, "resets 1:10pm")
+        XCTAssertEqual(accounts[0].limits?.fiveHour.percent, 55)
+        XCTAssertEqual(accounts[0].limits?.sevenDay.percent, 10)
+        XCTAssertNotNil(accounts[0].limits?.fiveHour.resetsAt)
+        XCTAssertNil(accounts[1].limits)
         XCTAssertEqual(formatTokens(167_252_038), "167.3M")
         XCTAssertEqual(formatTokens(2_613_997_951), "2.6B")
         XCTAssertEqual(formatTokens(950), "950")
