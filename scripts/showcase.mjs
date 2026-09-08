@@ -10,7 +10,7 @@ const sessions = [
 	{ name: "acme-api", chip: "WK", front: false, detail: "permission: Bash", status: "NEEDS YOU", color: red, elapsed: "9m" },
 	{ name: "web", chip: "WK", front: false, detail: "question", status: "NEEDS YOU", color: red, elapsed: "2m" },
 	{ name: "agent-deck", chip: "", front: false, detail: "", status: "DONE", color: green, elapsed: "11m" },
-	{ name: "onboarding", chip: "SP", front: false, detail: "resets 1:10pm (Europe/Kiev)", status: "LIMIT", color: blue, elapsed: "" },
+	{ name: "mobile", chip: "WK", front: false, detail: "resets 1:10pm", status: "LIMIT", color: blue, elapsed: "" },
 	{ name: "billing", chip: "", front: false, detail: "", status: "IDLE", color: grey, elapsed: "31m" },
 ];
 
@@ -35,7 +35,7 @@ const popover = () => `
   <div class="acct"><span class="path">~/.claude</span><span class="use">178.0M today · 1.6B week</span></div>
   <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:55%;background:${green}"></i></span><span class="pct" style="color:${green}">55%</span><span class="at">5:10pm</span>
     <span class="lbl">week</span><span class="bar"><i style="width:10%;background:${green}"></i></span><span class="pct" style="color:${green}">10%</span><span class="at">mon 9am</span></div>
-  <div class="acct"><span class="chip">SP</span><span class="path">~/.claude-skp</span><span class="limit">resets 1:10pm (Europe/Kiev)</span></div>
+  <div class="acct"><span class="chip">WK</span><span class="path">~/.claude-work</span><span class="limit">resets 1:10pm</span></div>
   <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:100%;background:${red}"></i></span><span class="pct" style="color:${red}">100%</span><span class="at">1:10pm</span>
     <span class="lbl">week</span><span class="bar"><i style="width:64%;background:${amber}"></i></span><span class="pct" style="color:${amber}">64%</span><span class="at">thu 6am</span></div>
   <hr>

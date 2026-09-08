@@ -6,7 +6,10 @@ cd "$(dirname "$0")/.."
 node scripts/showcase.mjs
 shot() { "$CHROME" --headless=new --hide-scrollbars --disable-gpu --force-device-scale-factor=2 --window-size=1920,1080 --screenshot="$PWD/$2" "file://$PWD/$1" >/dev/null 2>&1; }
 shot docs/media/hero.html docs/media/hero@2x.png
-magick docs/media/hero@2x.png -resize 1920x1080 docs/media/hero.png
+# The README hero zooms on the item and its popover (2x pixels: crisp on retina); the desktop is a second picture.
+magick docs/media/hero@2x.png -crop 1120x1080+2440+0 +repage docs/media/hero.png
+magick docs/media/hero@2x.png -resize 1920x1080 docs/media/desktop.png
+rm -f docs/media/hero@2x.png
 shot docs/media/notification.html docs/media/notification@2x.png
 magick docs/media/notification@2x.png -crop 1600x400+2240+0 +repage -resize 1200x300 docs/media/notification.png
 rm -f docs/media/notification@2x.png
@@ -15,5 +18,5 @@ for i in 0 1 2 3 4 5; do
   magick docs/media/frames/bar-$i.png -crop 1400x300+2440+0 +repage -resize 1120x240 docs/media/frames/bar-$i.png
 done
 magick -delay 90 -loop 0 docs/media/frames/bar-*.png -layers Optimize docs/media/menubar.gif
-rm -rf docs/media/frames docs/media/hero@2x.png
-echo "docs/media: hero.png notification.png menubar.gif"
+rm -rf docs/media/frames
+echo "docs/media: hero.png desktop.png notification.png menubar.gif"

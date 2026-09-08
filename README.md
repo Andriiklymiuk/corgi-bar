@@ -10,7 +10,7 @@ in front of you: press to talk, press again to send.
 
 Below the sessions: one block per Claude account (`~/.claude`, `~/.claude-work`, …): tokens today and this week, and the same two bars `/usage` shows — the 5-hour window and the week, percent used and when each resets — read from what Claude Code last cached. When an account hit its limit, the reset time replaces the tokens. Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
 
-![corgi-bar open in the menu bar: sessions with their state, accounts with token usage and a limit reset, remote sessions, Talk](docs/media/hero.png)
+<p align="center"><img src="docs/media/hero.png" width="560" alt="corgi-bar open in the menu bar: sessions with their state, accounts with token usage and the /usage windows, remote sessions, Talk"></p>
 
 <p align="center"><img src="docs/media/menubar.gif" width="560" alt="The menu bar item: grey, amber while working, red with a count when sessions need you, green, blue at the usage limit"> <img src="docs/media/notification.png" width="600" alt="A notification when a session needs you"></p>
 
