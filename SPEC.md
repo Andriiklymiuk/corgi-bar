@@ -1,0 +1,161 @@
+# corgi-bar — specification
+
+A macOS menu bar app that shows corgi's Claude Code session board and turns
+clicks into `corgi agent …` commands. For people without a Stream Deck, and
+for the deck's owner when the deck is in a bag. It holds no state of its own,
+never starts the daemon, and never talks to Claude Code directly. Everything
+it knows comes from one file corgi writes; everything it does is one corgi
+command. The Stream Deck plugin (github.com/Andriiklymiuk/agent-deck) is the
+same idea on keys; this document borrows its rules where they apply.
+
+## 1. What corgi already provides (do not rebuild)
+
+corgi ≥ 1.21.37, `corgi agent install` + `corgi agent track enable`:
+
+- `corgi agent sessions --json` → the board plus `path` (absolute path of
+  `sessions.json`) and `daemonRunning`. The file is rewritten atomically
+  (temp + rename) on every change; a directory watch on its parent is the
+  signal, a 5 s poll the fallback.
+- Board fields: `updatedAt`, `size`, `overflow`, `needsInput`, `working`,
+  `slots[]`, `sessions[]`, `windows[]`, `frontWindow`, `frontSession`,
+  `lastFocusWindow`, `notice` / `noticeAt`.
+- Session: `id`, `label`, `display` (unique label), `cwd`, `profile`,
+  `status`, `statusSince`, `lastActivity`, `detail`, `tool`, `host.kind`
+  (`vscode-terminal` | `vscode-panel` | `iterm` | `terminal` | `unknown`),
+  `host.windowId`, `focusError`, `focusAt`.
+- Statuses: `working` (amber), `needs_input` (red: a permission prompt, a
+  question, an API failure), `done` (green), `limited` (blue: the account
+  hit its usage limit; `detail` = "resets 12:10pm (Europe/Kiev)"), `stale`
+  (grey, 30 min quiet), `gone` (grey, pinned key whose process exited),
+  `unknown` (found by rescan, no hook yet).
+- `frontSession`: the session in the editor window in front — its panel
+  while the Claude Code panel is the active tab, else the active terminal
+  tab's session, else the panel, else the one that moved last. What Talk
+  dictates into. Needs the corgi VS Code extension ≥ 1.16.13 in every window.
+- Commands: `corgi agent focus <id|prefix|label|key#>`, `corgi agent new
+  [--window ID]` (a terminal running `corgi agent claude` in the window in
+  front, so a workspace under another account opens under it),
+  `corgi agent dismiss <ref>` (a done / idle / closed / limited session off
+  the board until its next event; refused for working or waiting ones),
+  `corgi agent pin <key#> [--off]`, `corgi agent page next|prev`,
+  `corgi agent rescan`, `corgi agent claude [--profile P] [-- args]`,
+  `corgi agent doctor`, `corgi --version`.
+- A failed focus lands on the session as `focusError` + `focusAt`; a failed
+  `new` or `dismiss` lands on the board as `notice` + `noticeAt`.
+
+## 2. Menu bar item
+
+- SF Symbol `dog` (macOS 14+) else `pawprint`. Tint by the board: grey when
+  the daemon is off or corgi is missing, amber when any session is
+  `working`, red when any is `needs_input`, blue when the only news is a
+  `limited` session. Red wins over amber wins over blue.
+- Text next to the icon: the `needs_input` count when > 0, else nothing.
+- One pulse of the red tint when the count rises; no animation otherwise.
+
+## 3. Dropdown (`MenuBarExtra` with `.window` style)
+
+Top to bottom:
+
+1. **New session** button → `corgi agent new`. Disabled with a tooltip when
+   `windows` is empty ("open a folder in VS Code with the corgi extension").
+2. One row per session, in board order (`slots` first, then the overflow),
+   each: a status dot, `display`, a `profile` chip when it is not `default`
+   (first two letters, uppercase, like the deck's `SP`), the `detail` line
+   in monospace and grey, elapsed since `statusSince` (kept counting locally
+   between publishes, bucketed to 5 s), and a small ● when it is
+   `frontSession`. Colours as in section 1. `gone` rows at 40 % opacity.
+   - Click → `corgi agent focus <id>`. Show ⚠ on the row once when the next
+     board carries a `focusError` with `focusAt` newer than the click.
+   - Secondary click → menu: **Dismiss** (not for working / needs_input),
+     **Pin / Unpin** (by key number), **Copy session id**, **Open folder in
+     Finder** (`cwd`).
+   - A `limited` row shows "resets …" in blue where the elapsed time would be.
+3. **Talk** button and its global hotkey (section 4).
+4. Footer: `corgi 1.21.37 · daemon running` (or "daemon off — `corgi agent
+   install`", or "corgi not found — brew install …"), a **Settings…** item,
+   **Quit**.
+
+The dropdown never blocks: every corgi call runs off the main thread, and
+the board redraw comes from the file, not from the command's exit.
+
+## 4. Talk
+
+Same rules as the deck's talk key:
+
+- Pick the session: `frontSession` if live, else the row last clicked, else
+  the only `needs_input` session, else the one with the newest
+  `lastActivity`. None → shake the button, log why.
+- `corgi agent focus <id>`; wait up to 1.5 s for the board to show that
+  session's `focusAt` newer than the click without a `focusError`; on
+  timeout assume the window is up.
+- Press the chord for the session's host: `vscode-panel` → `cmd+d` (Claude
+  Code's own dictation shortcut in the panel), everything else → `ctrl+y`
+  (bound to `voice:pushToTalk` in `~/.claude/keybindings.json`, with
+  `/voice tap`). Both chords configurable in Settings. Use `CGEvent`
+  keyboard events (needs Accessibility for corgi-bar; on failure open an
+  alert that deep-links to System Settings → Privacy & Security →
+  Accessibility). Never a shell string.
+- REC state: the button turns red after the first press; a second press
+  sends the same chord (tap mode: that sends the prompt) and clears; the
+  state also clears when that session becomes `working` with a
+  `statusSince` newer than the press, or after two minutes.
+- Global hotkey: default `ctrl+alt+space` via Carbon `RegisterEventHotKey`
+  (no Accessibility needed for the hotkey itself). A few presets in
+  Settings.
+
+## 5. Notifications
+
+- A macOS notification when a session enters `needs_input` (title
+  `display`, body `detail`); clicking it → `corgi agent focus <id>`.
+- A calmer one when a session enters `limited`: "acme-api hit the usage
+  limit · resets 12:10pm". No notification for `done`.
+- Per-session mute from the row's secondary menu (kept in UserDefaults by
+  session id; expires when the session leaves the board).
+- `UNUserNotificationCenter` needs a real bundle: the code must tolerate
+  running unbundled (`swift run`) by logging and moving on.
+
+## 6. Settings window
+
+Chords (terminal, panel), global hotkey preset, launch at login
+(`SMAppService`), notifications on/off, path to corgi (auto: `/opt/homebrew/bin/corgi`,
+`/usr/local/bin/corgi`, then `PATH`), and a "Run `corgi agent doctor`"
+button that shows the output in a sheet.
+
+## 7. Packaging and repo
+
+- SwiftUI, macOS 13+, Swift Package Manager, no `.xcodeproj`.
+- `Makefile`: `build` (swift build -c release), `app` (assemble
+  `build/corgi-bar.app`: `Contents/MacOS/corgi-bar`, `Info.plist` with
+  `CFBundleIdentifier com.andriiklymiuk.corgi-bar`, `LSUIElement true`,
+  version from a `VERSION` file; ad-hoc `codesign --force --deep --sign -`),
+  `run`, `install` (copy to /Applications), `test`.
+- `.github/workflows/release.yml`: on push to `main`, if `v<VERSION>` has no
+  tag: build on `macos-latest`, `make app`, zip, tag, GitHub Release with the
+  zip. Only `GITHUB_TOKEN`. The corgi VS Code extension's `release.yml` is
+  the model.
+- `Casks/corgi-bar.rb`: a Homebrew cask pointing at the release zip, with a
+  note on filling the sha256 and adding it to `andriiklymiuk/homebrew-tools`.
+  `corgi agent install` may later offer `brew install --cask corgi-bar`.
+- README: what it shows, the three-line corgi setup, the VS Code extension,
+  Accessibility for Talk, the hotkey, `make` targets. Plain.
+- Tests: the pure parts (board decoding from
+  `agent-deck/fixtures/sessions.json`, session picking for Talk, chord →
+  key codes, elapsed bucketing, icon tint from a board) as `swift test`.
+
+## 8. Milestones
+
+| # | deliverable | done when |
+|---|---|---|
+| 1 | Package, board reader, icon tint | icon turns amber/red with the live board; quitting the daemon greys it |
+| 2 | Dropdown rows, click to focus, ⚠ on failure | clicking a row brings the right VS Code tab up; a `host: unknown` row shows ⚠ once |
+| 3 | New session, dismiss, pin | `+` opens a `corgi agent claude` terminal in the front window; dismiss frees a done row; pin survives the session ending |
+| 4 | Talk + hotkey + Accessibility alert | ctrl+alt+space records in the panel or terminal in front, second press sends |
+| 5 | Notifications, mute | a permission prompt raises a notification; clicking it focuses |
+| 6 | Settings, launch at login, release workflow, cask | `make app` runs from /Applications at login; a VERSION bump publishes a zip |
+
+## 9. Not in scope
+
+Starting or installing corgi; showing tokens or remote-session URLs
+(`corgi agent status` covers it); anything Windows or Linux; picking a
+specific chat tab inside the Claude Code panel (Claude Code exposes no
+command for it; corgi focuses the panel, not the tab).
