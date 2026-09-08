@@ -64,6 +64,20 @@ struct Board: Decodable {
         return out
     }
 
+    /// Sessions of one workspace together, in the order corgi publishes them
+    /// (grouped by workspace since 1.21.47; grouped here again for older boards).
+    var groups: [SessionGroup] {
+        var out: [SessionGroup] = []
+        for s in sessions {
+            if let i = out.firstIndex(where: { $0.label == s.label }) {
+                out[i].sessions.append(s)
+            } else {
+                out.append(SessionGroup(label: s.label, sessions: [s]))
+            }
+        }
+        return out.sorted { $0.label.lowercased() < $1.label.lowercased() }
+    }
+
     func session(_ id: String?) -> Session? {
         guard let id else { return nil }
         return sessions.first { $0.id == id }
@@ -254,6 +268,13 @@ struct Session: Decodable, Identifiable {
     var stuck: Bool?
 
     var name: String { display ?? label }
+    /// What tells this session from its workspace siblings: the part of the
+    /// display name after "label·", or the whole name when it is unique.
+    var shortName: String {
+        let n = name
+        if n.hasPrefix(label + "·") { return String(n.dropFirst(label.count + 1)) }
+        return n
+    }
 
     /// The workspace the session belongs to, for a mute that covers all of it.
     var workspaceKey: String? { folder ?? cwd }
@@ -309,5 +330,16 @@ extension Board {
             trimmed = String(raw[..<dot]) + "." + kept + (kept.count < 3 ? String(repeating: "0", count: 3 - kept.count) : "") + String(raw[end...])
         }
         return fractional.date(from: trimmed) ?? plain.date(from: trimmed)
+    }
+}
+
+struct SessionGroup: Identifiable {
+    let label: String
+    var sessions: [Session]
+    var id: String { label }
+    /// The one profile every session here runs under, else nil (mixed).
+    var commonProfileChip: String? {
+        let chips = Set(sessions.map { $0.profileChip ?? "" })
+        return chips.count == 1 ? sessions.first?.profileChip : nil
     }
 }

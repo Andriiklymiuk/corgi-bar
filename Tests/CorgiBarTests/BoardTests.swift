@@ -17,6 +17,10 @@ final class BoardTests: XCTestCase {
         XCTAssertEqual(board.frontSession, board.sessions[0].id)
         XCTAssertEqual(board.mood, .needsInput)
         XCTAssertEqual(board.orderedSessions.count, 7)
+        let groups = board.groups
+        XCTAssertEqual(groups.reduce(0) { $0 + $1.sessions.count }, 7)
+        XCTAssertEqual(groups.map(\.label), groups.map(\.label).sorted { $0.lowercased() < $1.lowercased() })
+        for g in groups { XCTAssertTrue(g.sessions.allSatisfy { $0.label == g.label }) }
     }
 
     func testUnknownStatusesAndGoZonesDecode() throws {

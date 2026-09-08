@@ -216,8 +216,12 @@ struct BoardView: View {
                 Text(watcher.board.daemonRunning ? "No Claude Code session running" : "corgi agent is not running")
                     .foregroundStyle(.secondary).padding(.vertical, 4)
             }
-            ForEach(watcher.board.orderedSessions) { session in
-                SessionRow(session: session, board: watcher.board, now: now, talk: talk, carriedId: $carriedId)
+            ForEach(watcher.board.groups) { group in
+                GroupHeader(group: group)
+                ForEach(group.sessions) { session in
+                    SessionRow(session: session, board: watcher.board, now: now, talk: talk, carriedId: $carriedId,
+                               showProfile: group.commonProfileChip == nil)
+                }
             }
             AccountsView(watcher: watcher)
             RemoteView(watcher: watcher)
@@ -294,12 +298,33 @@ struct BoardView: View {
     }
 }
 
+/// One workspace's heading: its name, the account its sessions share, how many.
+struct GroupHeader: View {
+    var group: SessionGroup
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(group.label).font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+            if let chip = group.commonProfileChip {
+                Chip(chip)
+            }
+            Spacer()
+            if group.sessions.count > 1 {
+                Text("\(group.sessions.count)").font(.system(size: 10)).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 6)
+    }
+}
+
 struct SessionRow: View {
     var session: Session
     var board: Board
     var now: Date
     @ObservedObject var talk: Talk
     @Binding var carriedId: String?
+    var showProfile = true
     @ObservedObject private var settings = Preferences.shared
     @State private var hover = false
 
@@ -320,7 +345,14 @@ struct SessionRow: View {
             }
         }
         .padding(.vertical, 3)
+        .padding(.leading, 6)
         .background(RoundedRectangle(cornerRadius: 5).fill(hover ? Color.primary.opacity(0.08) : .clear))
+        .overlay(alignment: .leading) {
+            if board.frontSession == session.id {
+                RoundedRectangle(cornerRadius: 1).fill(Color.accentColor).frame(width: 2).padding(.vertical, 4)
+                    .help("The session in the window in front — what Talk and the prompt go to")
+            }
+        }
         .opacity(session.status == .gone ? 0.4 : 1)
         .onHover { hover = $0 }
         .contextMenu { menu }
@@ -336,15 +368,12 @@ struct SessionRow: View {
             Circle().fill(color).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text(session.title ?? session.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    if session.title != nil {
-                        Chip(session.name)
+                    Text(session.title ?? session.shortName).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    if session.title != nil, session.shortName != session.label {
+                        Chip(session.shortName)
                     }
-                    if let chip = session.profileChip {
+                    if showProfile, let chip = session.profileChip {
                         Chip(chip)
-                    }
-                    if board.frontSession == session.id {
-                        Text("●").font(.system(size: 8)).foregroundStyle(.secondary)
                     }
                     if session.isStuck {
                         Text("slow").font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
