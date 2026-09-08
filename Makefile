@@ -2,7 +2,7 @@ VERSION := $(shell cat VERSION)
 APP := build/corgi-bar.app
 BINARY := .build/release/corgi-bar
 
-.PHONY: build app run install clean test
+.PHONY: build app run install clean test showcase
 
 build:
 	swift build -c release
@@ -28,3 +28,6 @@ clean:
 
 test:
 	swift test
+
+showcase:
+	scripts/capture.sh

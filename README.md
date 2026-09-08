@@ -10,6 +10,10 @@ in front of you: press to talk, press again to send.
 
 Below the sessions: one line per Claude account (`~/.claude`, `~/.claude-work`, …) with tokens today and this week, or the reset time when that account hit its usage limit. Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
 
+![corgi-bar open in the menu bar: sessions with their state, accounts with token usage and a limit reset, remote sessions, Talk](docs/media/hero.png)
+
+<p align="center"><img src="docs/media/menubar.gif" width="560" alt="The menu bar item: grey, amber while working, red with a count when sessions need you, green, blue at the usage limit"> <img src="docs/media/notification.png" width="600" alt="A notification when a session needs you"></p>
+
 corgi-bar draws the board that [corgi](https://github.com/Andriiklymiuk/corgi)
 keeps and turns clicks into `corgi agent …` commands. It holds no state of
 its own and never starts the daemon. The same board on Stream Deck keys is
@@ -46,6 +50,7 @@ make test       # swift test
 make app        # build/corgi-bar.app, ad-hoc signed
 make run        # open it
 make install    # copy to /Applications
+make showcase   # redraw docs/media from scripts/showcase.mjs with Chrome
 ```
 
 Release: bump `VERSION`, push `main`; CI builds the app, tags `v<VERSION>`
