@@ -54,5 +54,8 @@ make showcase   # redraw docs/media from scripts/showcase.mjs with Chrome
 ```
 
 Release: bump `VERSION`, push `main`; CI builds the app, tags `v<VERSION>`
-and attaches the zip. `Casks/corgi-bar.rb` is the Homebrew cask to copy
+and attaches the zip. With the Apple secrets set (corgi's
+`docs/release-signing.md`: `MACOS_SIGN_P12`, `MACOS_SIGN_PASSWORD`,
+`APPLE_TEAM_ID`, `MACOS_NOTARY_*`) the app is Developer-ID signed, notarized
+and stapled, so macOS keeps the Accessibility grant across updates. `Casks/corgi-bar.rb` is the Homebrew cask to copy
 into the `andriiklymiuk/homebrew-tools` tap once a release exists.

@@ -9,6 +9,9 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+    env:
+      MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,6 +29,39 @@ jobs:
       - run: swift test
       - if: steps.version.outputs.new == 'true'
         run: make app
+      # Developer ID signing + notarization + stapling, when the Apple secrets
+      # are set (see corgi's docs/release-signing.md). macOS ties Accessibility
+      # and file-access grants to the signing identity, so a signed corgi-bar
+      # keeps them across updates. Without the secrets the zip is ad-hoc signed.
+      - if: steps.version.outputs.new == 'true' && env.MACOS_SIGN_P12 != ''
+        name: Sign with Developer ID
+        env:
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "$MACOS_SIGN_P12" | base64 --decode > /tmp/developer-id.p12
+          security create-keychain -p ci /tmp/ci.keychain-db
+          security set-keychain-settings -lut 21600 /tmp/ci.keychain-db
+          security unlock-keychain -p ci /tmp/ci.keychain-db
+          security import /tmp/developer-id.p12 -k /tmp/ci.keychain-db -P "$MACOS_SIGN_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci /tmp/ci.keychain-db
+          security list-keychains -d user -s /tmp/ci.keychain-db login.keychain-db
+          IDENTITY=$(security find-identity -v -p codesigning /tmp/ci.keychain-db | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" build/corgi-bar.app
+          codesign --verify --deep --strict --verbose=2 build/corgi-bar.app
+      - if: steps.version.outputs.new == 'true' && env.MACOS_NOTARY_KEY != ''
+        name: Notarize and staple
+        env:
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: |
+          printf '%s' "$MACOS_NOTARY_KEY" > /tmp/AuthKey.p8
+          ditto -c -k --keepParent build/corgi-bar.app /tmp/notarize.zip
+          xcrun notarytool submit /tmp/notarize.zip --key /tmp/AuthKey.p8 --key-id "$MACOS_NOTARY_KEY_ID" --issuer "$MACOS_NOTARY_ISSUER_ID" --wait --timeout 20m
+          xcrun stapler staple build/corgi-bar.app
+          spctl -a -vv -t install build/corgi-bar.app
       - if: steps.version.outputs.new == 'true'
         run: ditto -c -k --keepParent build/corgi-bar.app corgi-bar.zip
       - if: steps.version.outputs.new == 'true'
