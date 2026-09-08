@@ -16,7 +16,7 @@
       "claudePid": 4101,
       "configDir": "/home/me/.claude-work",
       "cwd": "/home/me/dev/acme-api",
-      "detail": "Claude needs your permission to use Bash",
+      "detail": "permission: Bash go test",
       "display": "acme-api",
       "focusAt": "0001-01-01T00:00:00Z",
       "host": {
@@ -38,7 +38,19 @@
       "statusSince": "2026-09-08T04:31:33.978409455Z",
       "termProgram": "vscode",
       "tool": "Bash",
-      "window": "w1"
+      "window": "w1",
+      "pending": {
+        "tool": "Bash",
+        "subject": "go test",
+        "at": "2026-09-08T04:31:33.978409455Z"
+      },
+      "context": {
+        "tokens": 144000,
+        "window": 200000,
+        "percent": 72,
+        "model": "claude-opus-4-7",
+        "at": "2026-09-08T04:31:20.978409455Z"
+      }
     },
     {
       "ancestors": [
@@ -70,7 +82,15 @@
       "statusSince": "2026-09-08T04:32:33.978409455Z",
       "termProgram": "vscode",
       "tool": "Edit",
-      "window": "w1"
+      "window": "w1",
+      "title": "Fix the login redirect",
+      "context": {
+        "tokens": 80000,
+        "window": 200000,
+        "percent": 40,
+        "at": "2026-09-08T04:32:20.978409455Z"
+      },
+      "stuck": true
     },
     {
       "ancestors": [
@@ -93,7 +113,8 @@
       "startedAt": "2026-09-08T04:33:03.978409455Z",
       "status": "done",
       "statusSince": "2026-09-08T04:33:03.978409455Z",
-      "termProgram": "iTerm.app"
+      "termProgram": "iTerm.app",
+      "note": "waiting on PR review"
     },
     {
       "ancestors": [
@@ -206,7 +227,9 @@
       "label": "acme-api",
       "profile": "work",
       "sessionId": "5b1c2e7a-acme",
-      "status": "needs_input"
+      "status": "needs_input",
+      "context": 72,
+      "pending": "Bash"
     },
     {
       "detail": "Edit",
@@ -218,7 +241,8 @@
       "pinned": true,
       "profile": "default",
       "sessionId": "9f30d1aa-web",
-      "status": "working"
+      "status": "working",
+      "stuck": true
     },
     {
       "elapsedS": 480,
@@ -228,7 +252,8 @@
       "label": "mobile",
       "profile": "default",
       "sessionId": "c77e0b19-mobile",
-      "status": "done"
+      "status": "done",
+      "note": "waiting on PR review"
     },
     {
       "elapsedS": 420,
@@ -285,5 +310,58 @@
       "updatedAt": "2026-09-08T04:31:03.978409455Z"
     }
   ],
-  "working": 2
+  "working": 2,
+  "accounts": [
+    {
+      "profile": "default",
+      "limits": {
+        "fetchedAt": "2026-09-08T04:40:00Z",
+        "fiveHour": {
+          "percent": 55,
+          "resetsAt": "2026-09-08T07:10:00Z"
+        },
+        "sevenDay": {
+          "percent": 10,
+          "resetsAt": "2026-09-15T06:00:00Z"
+        }
+      },
+      "forecast": {
+        "fiveHour": {
+          "percentPerHour": 12.5,
+          "safe": true,
+          "samples": 30
+        },
+        "sevenDay": {
+          "percentPerHour": 0,
+          "safe": true,
+          "samples": 30
+        }
+      },
+      "sessions": 4
+    },
+    {
+      "profile": "work",
+      "configDir": "/home/me/.claude-work",
+      "limits": {
+        "fetchedAt": "2026-09-08T04:40:00Z",
+        "fiveHour": {
+          "percent": 96,
+          "resetsAt": "2026-09-08T06:10:00Z"
+        },
+        "sevenDay": {
+          "percent": 64,
+          "resetsAt": "2026-09-11T06:00:00Z"
+        }
+      },
+      "forecast": {
+        "fiveHour": {
+          "percentPerHour": 62,
+          "exhaustAt": "2026-09-08T05:32:00Z",
+          "safe": false,
+          "samples": 30
+        }
+      },
+      "sessions": 2
+    }
+  ]
 }

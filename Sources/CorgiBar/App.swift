@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 @main
 struct CorgiBarApp: App {
@@ -29,11 +30,42 @@ struct CorgiBarApp: App {
     }
 }
 
-/// Wires the pieces that need the app lifecycle: the watcher, the hotkey,
+/// The quick prompt hotkey opens the dropdown and asks the field to take focus.
+final class PromptFocus: ObservableObject {
+    static let shared = PromptFocus()
+    @Published var requested = false
+}
+
+/// Opens the MenuBarExtra dropdown the way a click would: SwiftUI exposes no
+/// call for it, so the status item's button is pressed.
+enum MenuBarOpener {
+    static func open() {
+        for window in NSApp.windows where window.className.contains("StatusBarWindow") {
+            if let button = button(in: window.contentView) {
+                button.performClick(nil)
+                return
+            }
+        }
+    }
+
+    private static func button(in view: NSView?) -> NSStatusBarButton? {
+        guard let view else { return nil }
+        if let b = view as? NSStatusBarButton { return b }
+        for sub in view.subviews {
+            if let b = button(in: sub) { return b }
+        }
+        return nil
+    }
+}
+
+/// Wires the pieces that need the app lifecycle: the watcher, the hotkeys,
 /// notifications, and the talk state that follows the board.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var hotKey: HotKey?
+    private var talkKey: HotKey?
+    private var promptKey: HotKey?
+    private var nextKey: HotKey?
     private var attached = false
+    private var bag = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -46,23 +78,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         attached = true
         watcher.start()
         Notifier.shared.onOpen = { id in Corgi.shared.runInBackground(["agent", "focus", id]) }
-        hotKey = HotKey { Task { @MainActor in talk.press() } }
-        applyHotKey(talk: talk)
-        watcher.$board.sink { board in talk.boardMoved(board) }.store(in: &bag)
-        Preferences.shared.$hotKey.sink { [weak self] _ in self?.applyHotKey(talk: talk) }.store(in: &bag)
-    }
-
-    private func applyHotKey(talk: Talk) {
-        let name = Preferences.shared.hotKey
-        if let preset = HotKey.presets.first(where: { $0.name == name }) {
-            hotKey?.register(preset)
+        talkKey = HotKey { Task { @MainActor in talk.press() } }
+        promptKey = HotKey {
+            Task { @MainActor in
+                PromptFocus.shared.requested = true
+                MenuBarOpener.open()
+            }
         }
+        nextKey = HotKey {
+            Task { @MainActor in
+                if let s = watcher.board.nextNeedingYou() {
+                    talk.noteClick(s.id)
+                    Corgi.shared.runInBackground(["agent", "focus", s.id])
+                }
+            }
+        }
+        let prefs = Preferences.shared
+        prefs.$hotKey.sink { [weak self] in self?.talkKey?.register(named: $0) }.store(in: &bag)
+        prefs.$promptHotKey.sink { [weak self] in self?.promptKey?.register(named: $0) }.store(in: &bag)
+        prefs.$nextHotKey.sink { [weak self] in self?.nextKey?.register(named: $0) }.store(in: &bag)
+        watcher.$board.sink { board in talk.boardMoved(board) }.store(in: &bag)
     }
-
-    private var bag = Set<AnyCancellable>()
 }
-
-import Combine
 
 /// The menu bar item: a dog, tinted by the loudest thing on the board, and
 /// the count of sessions that need you. Drawn as a bitmap so the colour
@@ -119,22 +156,60 @@ struct MenuBarLabel: View {
     }
 }
 
+enum Palette {
+    static let amber = Color(red: 0.96, green: 0.65, blue: 0.14)
+    static let red = Color(red: 0.90, green: 0.28, blue: 0.30)
+    static let green = Color(red: 0.19, green: 0.64, blue: 0.42)
+    static let blue = Color(red: 0.36, green: 0.55, blue: 0.94)
+
+    static func status(_ s: Status) -> Color {
+        switch s {
+        case .working: return amber
+        case .needsInput: return red
+        case .done: return green
+        case .limited: return blue
+        case .stale, .gone, .unknown: return Color.secondary
+        }
+    }
+
+    /// Grey while there is room, orange past 60, red past 85.
+    static func context(_ percent: Int) -> Color {
+        switch percent {
+        case 86...: return red
+        case 61...85: return amber
+        default: return Color.secondary.opacity(0.6)
+        }
+    }
+}
+
 struct BoardView: View {
     @ObservedObject var watcher: BoardWatcher
     @ObservedObject var talk: Talk
+    @ObservedObject private var promptFocus = PromptFocus.shared
+    @ObservedObject private var settings = Preferences.shared
     @State private var now = Date()
-    @State private var flashed: Set<String> = []
+    @State private var prompt = ""
+    @State private var carriedId: String?
+    @FocusState private var promptFocused: Bool
     private let ticker = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Button {
-                Corgi.shared.runInBackground(["agent", "new"])
-            } label: {
-                Label("New session", systemImage: "plus").frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                TextField(promptPlaceholder, text: $prompt)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($promptFocused)
+                    .onSubmit(sendPrompt)
+                    .disabled(!watcher.board.daemonRunning)
+                Button {
+                    Corgi.shared.runInBackground(["agent", "new"])
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .disabled(!watcher.board.daemonRunning || watcher.board.windows.isEmpty)
+                .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : "New session: a claude terminal in the window in front")
             }
-            .disabled(!watcher.board.daemonRunning || watcher.board.windows.isEmpty)
-            .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : "A claude terminal in the window in front")
+            Text("Return sends · ⌥Return types without Enter · \(settings.promptHotKey)").font(.system(size: 9)).foregroundStyle(.tertiary)
 
             Divider()
             if watcher.board.sessions.isEmpty {
@@ -142,7 +217,7 @@ struct BoardView: View {
                     .foregroundStyle(.secondary).padding(.vertical, 4)
             }
             ForEach(watcher.board.orderedSessions) { session in
-                SessionRow(session: session, board: watcher.board, now: now, talk: talk)
+                SessionRow(session: session, board: watcher.board, now: now, talk: talk, carriedId: $carriedId)
             }
             AccountsView(watcher: watcher)
             RemoteView(watcher: watcher)
@@ -156,7 +231,7 @@ struct BoardView: View {
                 }
                 .keyboardShortcut("t", modifiers: [.command])
                 Spacer()
-                Text(Preferences.shared.hotKey).font(.caption).foregroundStyle(.secondary)
+                Text(settings.hotKey).font(.caption).foregroundStyle(.secondary)
             }
             if let err = talk.lastError {
                 Text(err).font(.caption).foregroundStyle(.red)
@@ -178,7 +253,38 @@ struct BoardView: View {
         .padding(10)
         .frame(width: 340)
         .onReceive(ticker) { now = $0 }
-        .onAppear { watcher.refreshStatus(force: true) }
+        .onAppear {
+            now = Date()
+            watcher.refreshStatus()
+            if promptFocus.requested {
+                promptFocus.requested = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { promptFocused = true }
+            }
+        }
+        .onChange(of: promptFocus.requested) { requested in
+            if requested {
+                promptFocus.requested = false
+                promptFocused = true
+            }
+        }
+    }
+
+    private var promptPlaceholder: String {
+        if let s = talk.target() { return "Prompt for \(s.name)" }
+        return "Prompt"
+    }
+
+    private func sendPrompt() {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        guard let session = talk.target() else {
+            talk.lastError = "no Claude Code session to send to"
+            return
+        }
+        let withoutEnter = NSApp.currentEvent?.modifierFlags.contains(.option) ?? false
+        prompt = ""
+        promptFocused = false
+        talk.sendText(session, text, enter: !withoutEnter)
     }
 
     private var footer: String {
@@ -193,121 +299,284 @@ struct SessionRow: View {
     var board: Board
     var now: Date
     @ObservedObject var talk: Talk
+    @Binding var carriedId: String?
+    @ObservedObject private var settings = Preferences.shared
     @State private var hover = false
 
     var body: some View {
-        Button {
-            talk.noteClick(session.id)
-            Corgi.shared.runInBackground(["agent", "focus", session.id])
-        } label: {
-            HStack(spacing: 8) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        Text(session.name).font(.system(size: 13, weight: .semibold))
-                        if let chip = session.profileChip {
-                            Text(chip).font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
-                                .background(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary, lineWidth: 1))
-                        }
-                        if board.frontSession == session.id {
-                            Text("●").font(.system(size: 8)).foregroundStyle(.secondary)
-                        }
-                        if let e = session.focusError, !e.isEmpty {
-                            Text("⚠").help(e)
-                        }
-                    }
-                    if let d = session.detail, !d.isEmpty {
-                        Text(d).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(session.status.word).font(.system(size: 9, weight: .bold)).foregroundStyle(color)
-                    if session.status != .limited {
-                        Text(elapsedText(since: session.statusSince, now: now)).font(.system(size: 10)).foregroundStyle(.secondary)
-                    }
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Button(action: focus) { main }
+                    .buttonStyle(.plain)
+                if settings.approveFromBar, let pending = session.answerable {
+                    AnswerButtons(session: session, pending: pending, talk: talk)
                 }
             }
-            .contentShape(Rectangle())
-            .padding(.vertical, 3).padding(.horizontal, 4)
-            .background(RoundedRectangle(cornerRadius: 5).fill(hover ? Color.primary.opacity(0.08) : .clear))
+            if let percent = session.contextPercent {
+                ContextBar(percent: percent).padding(.horizontal, 4)
+            }
+            if session.status == .limited {
+                carry
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 3)
+        .background(RoundedRectangle(cornerRadius: 5).fill(hover ? Color.primary.opacity(0.08) : .clear))
         .opacity(session.status == .gone ? 0.4 : 1)
         .onHover { hover = $0 }
-        .contextMenu {
-            Button("Dismiss") { Corgi.shared.runInBackground(["agent", "dismiss", session.id]) }
-                .disabled(!session.status.isFinished)
-            if let key = board.keyNumber(of: session.id) {
-                let pinned = board.slots.first { $0.sessionId == session.id }?.pinned ?? false
-                Button(pinned ? "Unpin" : "Pin") {
-                    var args = ["agent", "pin", String(key)]
-                    if pinned { args.append("--off") }
-                    Corgi.shared.runInBackground(args)
+        .contextMenu { menu }
+    }
+
+    private func focus() {
+        talk.noteClick(session.id)
+        Corgi.shared.runInBackground(["agent", "focus", session.id])
+    }
+
+    private var main: some View {
+        HStack(spacing: 8) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(session.title ?? session.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    if session.title != nil {
+                        Chip(session.name)
+                    }
+                    if let chip = session.profileChip {
+                        Chip(chip)
+                    }
+                    if board.frontSession == session.id {
+                        Text("●").font(.system(size: 8)).foregroundStyle(.secondary)
+                    }
+                    if session.isStuck {
+                        Text("slow").font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Palette.amber.opacity(0.25)))
+                            .help("Working, but no event for 12 minutes")
+                    }
+                    if let e = session.focusError, !e.isEmpty {
+                        Text("⚠").help(e)
+                    }
+                }
+                if let line = secondary {
+                    Text(line).font(.system(size: 10, design: .monospaced)).foregroundStyle(session.note != nil ? .primary : .secondary).lineLimit(1)
                 }
             }
-            Button(Notifier.shared.muted.contains(session.id) ? "Unmute notifications" : "Mute notifications") {
-                if Notifier.shared.muted.contains(session.id) { Notifier.shared.muted.remove(session.id) } else { Notifier.shared.muted.insert(session.id) }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(session.status.word).font(.system(size: 9, weight: .bold)).foregroundStyle(color)
+                if session.status != .limited {
+                    Text(elapsedText(since: session.statusSince, now: now)).font(.system(size: 10)).foregroundStyle(.secondary)
+                }
             }
-            Divider()
-            Button("Copy session id") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(session.id, forType: .string)
+        }
+        .contentShape(Rectangle())
+        .padding(.horizontal, 4)
+    }
+
+    /// The note when there is one, else what the session is doing.
+    private var secondary: String? {
+        if let note = session.note, !note.isEmpty { return note }
+        if session.isStuck {
+            return "no activity \(elapsedText(since: session.lastActivity, now: now))"
+        }
+        if let pending = session.answerable { return "permission: \(pending.text)" }
+        if let d = session.detail, !d.isEmpty { return d }
+        return nil
+    }
+
+    @ViewBuilder private var carry: some View {
+        let targets = board.carryTargets(for: session)
+        if !targets.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(targets) { a in
+                    Button("Carry to \(a.profile)") {
+                        carriedId = session.id
+                        Corgi.shared.runInBackground(["agent", "carry", session.id, "--profile", a.profile])
+                    }
+                    .buttonStyle(.bordered).controlSize(.mini)
+                    .help("Continue this conversation under \(a.profile) (\(a.limits?.fiveHour.percent ?? 0)% of its 5h window used)")
+                }
             }
-            if let cwd = session.cwd {
-                Button("Open folder in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: cwd)) }
-            }
+            .padding(.horizontal, 4)
+        }
+        if carriedId == session.id, let notice = board.notice, notice.contains("lists no accounts"),
+           let at = board.noticeAt, now.timeIntervalSince(at) < 120 {
+            Text(notice).font(.system(size: 9)).foregroundStyle(.orange).padding(.horizontal, 4)
         }
     }
 
-    private var color: Color {
-        switch session.status {
-        case .working: return Color(red: 0.96, green: 0.65, blue: 0.14)
-        case .needsInput: return Color(red: 0.90, green: 0.28, blue: 0.30)
-        case .done: return Color(red: 0.19, green: 0.64, blue: 0.42)
-        case .limited: return Color(red: 0.36, green: 0.55, blue: 0.94)
-        case .stale, .gone, .unknown: return Color.secondary
+    @ViewBuilder private var menu: some View {
+        Button("Dismiss") { Corgi.shared.runInBackground(["agent", "dismiss", session.id]) }
+            .disabled(!session.status.isFinished)
+        if let key = board.keyNumber(of: session.id) {
+            let pinned = board.slots.first { $0.sessionId == session.id }?.pinned ?? false
+            Button(pinned ? "Unpin" : "Pin") {
+                var args = ["agent", "pin", String(key)]
+                if pinned { args.append("--off") }
+                Corgi.shared.runInBackground(args)
+            }
         }
+        Button("Compact context") { talk.sendText(session, "/compact", enter: true) }
+        if settings.approveFromBar, session.answerable != nil {
+            Divider()
+            Button("Allow always") { talk.answer(session, .always) }
+            Button("Deny") { talk.answer(session, .deny) }
+        }
+        Divider()
+        Button(Notifier.shared.muted.contains(session.id) ? "Unmute session" : "Mute session") {
+            if Notifier.shared.muted.contains(session.id) { Notifier.shared.muted.remove(session.id) } else { Notifier.shared.muted.insert(session.id) }
+        }
+        if let key = session.workspaceKey {
+            let name = (key as NSString).lastPathComponent
+            Button(Notifier.shared.mutedWorkspaces.contains(key) ? "Unmute workspace \(name)" : "Mute workspace \(name)") {
+                if Notifier.shared.mutedWorkspaces.contains(key) { Notifier.shared.mutedWorkspaces.remove(key) } else { Notifier.shared.mutedWorkspaces.insert(key) }
+            }
+        }
+        Divider()
+        Button("Copy session id") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(session.id, forType: .string)
+        }
+        if let cwd = session.cwd {
+            Button("Open folder in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: cwd)) }
+        }
+    }
+
+    private var color: Color { Palette.status(session.status) }
+}
+
+struct Chip: View {
+    var text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text).font(.system(size: 9, weight: .bold)).lineLimit(1).padding(.horizontal, 3).padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary, lineWidth: 1))
     }
 }
 
+/// Allow and Deny for the permission prompt a row is waiting on.
+struct AnswerButtons: View {
+    var session: Session
+    var pending: Pending
+    @ObservedObject var talk: Talk
 
-/// One line per Claude account: tokens today and this week, and the
-/// usage-limit reset when a session under it hit the limit.
+    var body: some View {
+        HStack(spacing: 4) {
+            Button("Allow") { talk.answer(session, .allow) }
+                .buttonStyle(.bordered).controlSize(.mini).tint(Palette.green)
+            Button("Deny") { talk.answer(session, .deny) }
+                .buttonStyle(.bordered).controlSize(.mini)
+        }
+        .help("Answer the \(pending.text) prompt; right-click the row for Allow always")
+        .padding(.trailing, 4)
+    }
+}
+
+/// Two pixels under a row: how full the session's context window is.
+struct ContextBar: View {
+    var percent: Int
+
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Rectangle().fill(Color.primary.opacity(0.08))
+                Rectangle().fill(Palette.context(percent)).frame(width: g.size.width * CGFloat(percent) / 100)
+            }
+        }
+        .frame(height: 2)
+        .help("Context \(percent)% full")
+    }
+}
+
+/// One block per Claude account: live session count, tokens today and this
+/// week, the two /usage bars, the last five hours of the 5-hour window and
+/// where it is heading.
 struct AccountsView: View {
     @ObservedObject var watcher: BoardWatcher
+    @State private var samples: [String: [UsageSample]] = [:]
 
     var body: some View {
         let accounts = watcher.status.accounts(board: watcher.board)
         if !accounts.isEmpty {
             Divider()
-            ForEach(accounts) { a in
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        if !a.chip.isEmpty {
-                            Text(a.chip).font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
-                                .background(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary, lineWidth: 1))
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(accounts) { a in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            if !a.chip.isEmpty { Chip(a.chip) }
+                            Text(a.title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                            if a.sessions > 0 {
+                                Text("\(a.sessions) live").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                            if let until = a.limitedUntil {
+                                Text(until).font(.system(size: 10, weight: .semibold)).foregroundStyle(Palette.blue)
+                            } else if a.tokensToday > 0 || a.tokensWeek > 0 {
+                                Text("\(formatTokens(a.tokensToday)) today · \(formatTokens(a.tokensWeek)) week").font(.system(size: 10)).foregroundStyle(.secondary)
+                            }
                         }
-                        Text(a.title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                        Spacer()
-                        if let until = a.limitedUntil {
-                            Text(until).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(red: 0.36, green: 0.55, blue: 0.94))
+                        if let l = a.limits {
+                            HStack(spacing: 8) {
+                                LimitBar(label: "5h", window: l.fiveHour)
+                                LimitBar(label: "week", window: l.sevenDay)
+                            }
+                            HStack(spacing: 6) {
+                                if let points = samples[a.profile], points.count > 1 {
+                                    Sparkline(values: points.map(\.fiveHour)).frame(width: 60, height: 12)
+                                }
+                                if let line = ForecastLine.make(a.forecast?.fiveHour, resetsAt: l.fiveHour.resetsAt) {
+                                    Text(line.text).font(.system(size: 9)).foregroundStyle(line.danger ? Palette.red : Color.secondary).lineLimit(1)
+                                }
+                            }
                         } else {
-                            Text("\(formatTokens(a.tokensToday)) today · \(formatTokens(a.tokensWeek)) week").font(.system(size: 10)).foregroundStyle(.secondary)
+                            Text("no usage snapshot — run /usage once under this account").font(.system(size: 9)).foregroundStyle(.tertiary)
                         }
                     }
-                    if let l = a.limits {
-                        HStack(spacing: 8) {
-                            LimitBar(label: "5h", window: l.fiveHour)
-                            LimitBar(label: "week", window: l.sevenDay)
-                        }
-                    } else {
-                        Text("no usage snapshot — run /usage once under this account").font(.system(size: 9)).foregroundStyle(.tertiary)
-                    }
+                    .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 4)
             }
+            .onAppear(perform: loadSamples)
+            .onChange(of: samplesKey(accounts)) { _ in loadSamples() }
         }
+    }
+
+    /// What the samples depend on: the agent dir and the accounts listed.
+    /// Both settle once after launch and then stay put.
+    private func samplesKey(_ accounts: [AgentStatus.Account]) -> String {
+        (watcher.board.agentDir ?? "") + "|" + accounts.map(\.profile).joined(separator: ",")
+    }
+
+    /// The samples files are read when the dropdown opens (and when the key
+    /// above settles: the content is built before that), off the main thread.
+    /// The profiles are read here, not captured: a closure made by an older
+    /// body would carry an older list.
+    private func loadSamples() {
+        guard let dir = watcher.board.agentDir else { return }
+        let profiles = watcher.status.accounts(board: watcher.board).map(\.profile)
+        DispatchQueue.global(qos: .utility).async {
+            var out: [String: [UsageSample]] = [:]
+            for p in profiles { out[p] = UsageSamples.load(agentDir: dir, profile: p) }
+            DispatchQueue.main.async { samples = out }
+        }
+    }
+}
+
+/// The last five hours of one limit, as a line.
+struct Sparkline: View {
+    var values: [Int]
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard values.count > 1 else { return }
+            var path = Path()
+            let stepX = size.width / CGFloat(values.count - 1)
+            let span = size.height - 2
+            for (i, v) in values.enumerated() {
+                let point = CGPoint(x: CGFloat(i) * stepX, y: 1 + span - span * CGFloat(min(100, max(0, v))) / 100)
+                if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            }
+            ctx.stroke(path, with: .color(Palette.context(values.last ?? 0)), lineWidth: 1.2)
+        }
+        .help("5-hour window over the last five hours")
     }
 }
 
@@ -323,7 +592,7 @@ struct RemoteView: View {
             DisclosureGroup(isExpanded: $expanded) {
                 ForEach(watcher.status.workspaces) { w in
                     HStack(spacing: 6) {
-                        Circle().fill(w.running ? Color(red: 0.19, green: 0.64, blue: 0.42) : Color.secondary).frame(width: 6, height: 6)
+                        Circle().fill(w.running ? Palette.green : Color.secondary).frame(width: 6, height: 6)
                         Text(w.workspaceId).font(.system(size: 11))
                         Spacer()
                         if let url = w.sessionUrl, let u = URL(string: url) {
@@ -350,11 +619,10 @@ struct RemoteView: View {
     }
 }
 
-
 /// One rolling limit as /usage shows it: a thin bar, the percent, the reset time.
 struct LimitBar: View {
     var label: String
-    var window: AgentStatus.Limits.Window
+    var window: UsageLimits.Window
 
     var body: some View {
         HStack(spacing: 4) {
@@ -375,9 +643,9 @@ struct LimitBar: View {
 
     private var color: Color {
         switch window.percent {
-        case 90...: return Color(red: 0.90, green: 0.28, blue: 0.30)
-        case 70..<90: return Color(red: 0.96, green: 0.65, blue: 0.14)
-        default: return Color(red: 0.19, green: 0.64, blue: 0.42)
+        case 90...: return Palette.red
+        case 70..<90: return Palette.amber
+        default: return Palette.green
         }
     }
 

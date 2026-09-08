@@ -23,6 +23,11 @@ final class Talk: ObservableObject {
         lastClicked = sessionId
     }
 
+    /// The session a prompt or a Talk press goes to right now.
+    func target() -> Session? {
+        Talk.pick(watcher.board, lastClicked: lastClicked)
+    }
+
     /// The session to dictate into: the one in the window in front, else the
     /// row last clicked, else the only one that needs you, else the latest.
     nonisolated static func pick(_ board: Board, lastClicked: String?) -> Session? {
@@ -79,6 +84,90 @@ final class Talk: ObservableObject {
                 self.startRecording(session.id)
             }
         }
+    }
+
+    enum Answer: String {
+        case allow, always, deny
+
+        /// What a hand would press in the prompt when corgi cannot type it.
+        var keys: [String] {
+            switch self {
+            case .allow: return ["return"]
+            case .always: return ["2", "return"]
+            case .deny: return ["escape"]
+            }
+        }
+    }
+
+    /// Answer the permission prompt through corgi; a panel session takes
+    /// only keystrokes, so the board's "keyboard" failure is the cue to
+    /// focus it and press the keys ourselves.
+    func answer(_ session: Session, _ answer: Answer) {
+        lastError = nil
+        NSApp.hide(nil)
+        runThenType(["agent", "answer", session.id, answer.rawValue], session: session) { [weak self] in
+            self?.press(answer.keys)
+        }
+    }
+
+    /// Type a prompt into the session through corgi, falling back to
+    /// keystrokes the same way.
+    func sendText(_ session: Session, _ text: String, enter: Bool) {
+        lastError = nil
+        NSApp.hide(nil)
+        var args = ["agent", "send", session.id]
+        if enter { args.append("--enter") }
+        args.append(text)
+        runThenType(args, session: session) { [weak self] in
+            guard let self else { return }
+            do {
+                try Chord.type(text)
+            } catch Chord.SendError.notTrusted {
+                self.lastError = "corgi-bar needs Accessibility to type into the panel"
+                Talk.askForAccessibility()
+                return
+            } catch {
+                self.lastError = "cannot type into the panel"
+                return
+            }
+            if enter { self.press(["return"]) }
+        }
+    }
+
+    private func press(_ keys: [String]) {
+        for (i, key) in keys.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12 * Double(i)) { [weak self] in
+                self?.send(key)
+            }
+        }
+    }
+
+    /// Run a corgi command that focuses and types; when the board (or the
+    /// command) says the host takes text only from the keyboard, focus the
+    /// session ourselves and type. Any other failure is shown as is.
+    private func runThenType(_ args: [String], session: Session, type: @escaping () -> Void) {
+        let pressedAt = Date()
+        Corgi.shared.runInBackground(args) { [weak self] r in
+            guard let self else { return }
+            let stderr = r.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !r.ok, !Talk.needsKeyboard(stderr) {
+                self.lastError = stderr.isEmpty ? "corgi \(args.joined(separator: " ")) failed" : stderr
+                return
+            }
+            self.waitForFocus(session.id, since: pressedAt, deadline: Date().addingTimeInterval(1.5)) { landed in
+                if r.ok, landed { return }
+                let error = self.watcher.board.session(session.id)?.focusError ?? ""
+                if Talk.needsKeyboard(error) || Talk.needsKeyboard(stderr) {
+                    self.focusThen(session, then: type)
+                } else if !error.isEmpty || !stderr.isEmpty {
+                    self.lastError = error.isEmpty ? stderr : error
+                }
+            }
+        }
+    }
+
+    nonisolated static func needsKeyboard(_ message: String) -> Bool {
+        message.localizedCaseInsensitiveContains("keyboard")
     }
 
     /// corgi brings the session's window and tab forward; the board says

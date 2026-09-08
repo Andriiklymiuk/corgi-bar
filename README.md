@@ -6,9 +6,19 @@ hit its usage limit. Click it: one row per session — click to jump to its
 window and terminal tab, right-click to dismiss or pin. **New session**
 opens a `claude` terminal in the window in front, under that folder's
 account. **Talk** (or `ctrl+alt+space` anywhere) dictates into the session
-in front of you: press to talk, press again to send.
+in front of you: press to talk, press again to send. The field at the top
+types a prompt into that same session (`ctrl+alt+p` opens it from
+anywhere); `ctrl+alt+n` jumps to the session that has waited longest.
 
-Below the sessions: one block per Claude account (`~/.claude`, `~/.claude-work`, …): tokens today and this week, and the same two bars `/usage` shows — the 5-hour window and the week, percent used and when each resets — read from what Claude Code last cached. When an account hit its limit, the reset time replaces the tokens. Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
+Each row carries what corgi knows: the chat's title, a 2 px context bar
+(orange past 60 %, red past 85 %), your note (`corgi agent note`), a
+**slow** badge when a working session has gone quiet, and — when a
+permission prompt is waiting and you turned **Approve from the menu bar** on
+— **Allow** / **Deny** buttons (corgi refuses risky commands; go look at
+those). Right-click for Dismiss, Pin, Compact context, mute (session or
+workspace), Copy id, Open in Finder.
+
+Below the sessions: one block per Claude account (`~/.claude`, `~/.claude-work`, …): live sessions, tokens today and this week, the same two bars `/usage` shows — the 5-hour window and the week, percent used and when each resets — a sparkline of the last five hours, and where the pace lands: "62%/h · runs out 14:32 (before the 16:10 reset)" in red, or "lasts until the reset". When an account hit its limit, the reset time replaces the tokens, and the limited row offers **Carry to <account>** for every other account with budget (`corgi agent carry`). Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
 
 <p align="center"><img src="docs/media/hero.png" width="560" alt="corgi-bar open in the menu bar: sessions with their state, accounts with token usage and the /usage windows, remote sessions, Talk"></p>
 
@@ -40,7 +50,9 @@ needs **Accessibility** for corgi-bar (System Settings → Privacy & Security �
 Accessibility; the app asks the first time). For terminal sessions run
 `/voice tap` once in Claude Code and bind `voice:pushToTalk` to `ctrl+y` in
 `~/.claude/keybindings.json`; the Claude Code panel takes its own `cmd+d`,
-then Enter after 1.5 s to send. All of that is in Settings.
+then Enter after 1.5 s to send. All of that is in Settings, with quiet
+hours, a sound per event, and a **Today** tab: twelve weeks of days, the
+hours you work, today's tokens by model, from `~/.claude/stats-cache.json`.
 
 ## Development
 

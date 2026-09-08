@@ -18,16 +18,7 @@ struct AgentStatus: Decodable {
         var tokensToday: Int64
         var tokensWeek: Int64
     }
-    /// The /usage picture Claude Code last cached for one account.
-    struct Limits: Decodable {
-        struct Window: Decodable {
-            var percent: Int
-            var resetsAt: Date?
-        }
-        var fetchedAt: Date?
-        var fiveHour: Window
-        var sevenDay: Window
-    }
+    typealias Limits = UsageLimits
     struct AccountLimits: Decodable {
         var profile: String
         var configDir: String?
@@ -54,8 +45,9 @@ struct AgentStatus: Decodable {
         dashboardUrl = try c.decodeIfPresent(String.self, forKey: .dashboardUrl)
     }
 
-    /// One row per Claude account: tokens summed over its workspaces, and the
-    /// usage-limit reset when a session under it is limited.
+    /// One row per Claude account: tokens summed over its workspaces, the
+    /// limits and forecast the board carries, and the usage-limit reset when
+    /// a session under it is limited.
     struct Account: Identifiable {
         var profile: String
         var configDir: String
@@ -63,6 +55,8 @@ struct AgentStatus: Decodable {
         var tokensWeek: Int64
         var limitedUntil: String?
         var limits: Limits?
+        var forecast: Forecast?
+        var sessions: Int = 0
         var id: String { profile }
         var chip: String { profile == "default" ? "" : String(profile.prefix(2)).uppercased() }
         var title: String { profile == "default" ? "~/.claude" : (configDir as NSString).abbreviatingWithTildeInPath }
@@ -81,6 +75,15 @@ struct AgentStatus: Decodable {
             var a = byProfile[l.profile] ?? Account(profile: l.profile, configDir: l.configDir ?? "", tokensToday: 0, tokensWeek: 0)
             a.limits = l.limits
             byProfile[l.profile] = a
+        }
+        // The board's accounts are fresher than the status poll: they win.
+        for b in board.accounts {
+            var a = byProfile[b.profile] ?? Account(profile: b.profile, configDir: b.configDir ?? "", tokensToday: 0, tokensWeek: 0)
+            if a.configDir.isEmpty, let dir = b.configDir { a.configDir = dir }
+            if let l = b.limits { a.limits = l }
+            a.forecast = b.forecast
+            a.sessions = b.sessions
+            byProfile[b.profile] = a
         }
         for s in board.sessions where s.status == .limited {
             let profile = s.profile ?? "default"

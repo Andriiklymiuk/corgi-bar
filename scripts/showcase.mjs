@@ -6,44 +6,59 @@ import { mkdirSync, writeFileSync } from "node:fs";
 const amber = "#F5A623", red = "#E5484D", green = "#30A46C", blue = "#5B8DEF", grey = "#8E8E93";
 
 const sessions = [
-	{ name: "corgi", chip: "", front: true, detail: "Bash", status: "WORKING", color: amber, elapsed: "15s" },
-	{ name: "acme-api", chip: "WK", front: false, detail: "permission: Bash", status: "NEEDS YOU", color: red, elapsed: "9m" },
-	{ name: "web", chip: "WK", front: false, detail: "question", status: "NEEDS YOU", color: red, elapsed: "2m" },
-	{ name: "agent-deck", chip: "", front: false, detail: "", status: "DONE", color: green, elapsed: "11m" },
-	{ name: "mobile", chip: "WK", front: false, detail: "resets 1:10pm", status: "LIMIT", color: blue, elapsed: "" },
+	{ name: "corgi", chip: "", front: true, detail: "Edit registry.go", status: "WORKING", color: amber, elapsed: "15s", ctx: 41 },
+	{ name: "acme-api", chip: "WK", front: false, detail: "permission: Bash go test", status: "NEEDS YOU", color: red, elapsed: "9m", ctx: 72, pending: true },
+	{ name: "web", title: "Fix the login redirect", chip: "WK", front: false, detail: "question", status: "NEEDS YOU", color: red, elapsed: "2m", ctx: 88 },
+	{ name: "agent-deck", chip: "", front: false, detail: "waiting on PR review", note: true, status: "DONE", color: green, elapsed: "11m", ctx: 23 },
+	{ name: "mobile", chip: "WK", front: false, detail: "resets 1:10pm", status: "LIMIT", color: blue, elapsed: "", carry: "default" },
 	{ name: "billing", chip: "", front: false, detail: "", status: "IDLE", color: grey, elapsed: "31m" },
 ];
+
+const ctxColor = (p) => (p > 85 ? red : p > 60 ? amber : "rgba(255,255,255,.35)");
 
 const dog = (color, size = 16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.2 8.5 3H5l-1 5 3 2.5V14a5 5 0 0 0 5 5h2a5 5 0 0 0 5-5v-3.5L22 8l-1-5h-3.5L16 5.2"/><path d="M9 12h.01M15 12h.01M12 15v1"/></svg>`;
 
 const row = (s) => `
 <div class="row">
-  <span class="dot" style="background:${s.color}"></span>
-  <div class="txt">
-    <div class="name">${s.name}${s.chip ? `<span class="chip">${s.chip}</span>` : ""}${s.front ? `<span class="front">●</span>` : ""}</div>
-    ${s.detail ? `<div class="detail">${s.detail}</div>` : ""}
+  <div class="line">
+    <span class="dot" style="background:${s.color}"></span>
+    <div class="txt">
+      <div class="name">${s.title ?? s.name}${s.title ? `<span class="chip">${s.name}</span>` : ""}${s.chip ? `<span class="chip">${s.chip}</span>` : ""}${s.front ? `<span class="front">●</span>` : ""}</div>
+      ${s.detail ? `<div class="detail${s.note ? " note" : ""}">${s.detail}</div>` : ""}
+    </div>
+    <div class="right"><div class="status" style="color:${s.color}">${s.status}</div><div class="elapsed">${s.elapsed}</div></div>
+    ${s.pending ? `<div class="answer"><span class="ok">Allow</span><span>Deny</span></div>` : ""}
   </div>
-  <div class="right"><div class="status" style="color:${s.color}">${s.status}</div><div class="elapsed">${s.elapsed}</div></div>
+  ${s.ctx ? `<div class="ctx"><i style="width:${s.ctx}%;background:${ctxColor(s.ctx)}"></i></div>` : ""}
+  ${s.carry ? `<div class="carry"><span>Carry to ${s.carry}</span></div>` : ""}
 </div>`;
+
+const spark = (from, to, color) => {
+	const pts = Array.from({ length: 12 }, (_, i) => `${i * 5.4},${12 - (from + ((to - from) * i) / 11) * 0.1}`).join(" ");
+	return `<svg class="spark" width="60" height="12" viewBox="0 0 60 12"><polyline fill="none" stroke="${color}" stroke-width="1.2" points="${pts}"/></svg>`;
+};
 
 const popover = () => `
 <div class="popover">
-  <div class="btn"><span class="plus">＋</span> New session</div>
+  <div class="prompt"><span class="field">Prompt for corgi</span><span class="plus">＋</span></div>
+  <div class="hint">Return sends · ⌥Return types without Enter · ctrl+alt+p</div>
   <hr>
   ${sessions.map(row).join("")}
   <hr>
-  <div class="acct"><span class="path">~/.claude</span><span class="use">178.0M today · 1.6B week</span></div>
+  <div class="acct"><span class="path">~/.claude</span><span class="live">4 live</span><span class="use">178.0M today · 1.6B week</span></div>
   <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:55%;background:${green}"></i></span><span class="pct" style="color:${green}">55%</span><span class="at">5:10pm</span>
     <span class="lbl">week</span><span class="bar"><i style="width:10%;background:${green}"></i></span><span class="pct" style="color:${green}">10%</span><span class="at">mon 9am</span></div>
-  <div class="acct"><span class="chip">WK</span><span class="path">~/.claude-work</span><span class="limit">resets 1:10pm</span></div>
+  <div class="fc">${spark(20, 55, "rgba(255,255,255,.4)")}12.5%/h · lasts until the reset</div>
+  <div class="acct"><span class="chip">WK</span><span class="path">~/.claude-work</span><span class="live">2 live</span><span class="limit">resets 1:10pm</span></div>
   <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:100%;background:${red}"></i></span><span class="pct" style="color:${red}">100%</span><span class="at">1:10pm</span>
     <span class="lbl">week</span><span class="bar"><i style="width:64%;background:${amber}"></i></span><span class="pct" style="color:${amber}">64%</span><span class="at">thu 6am</span></div>
+  <div class="fc" style="color:${red}">${spark(40, 100, red)}62%/h · runs out 12:41 (before the 1:10pm reset)</div>
   <hr>
   <div class="remote">▸ Remote · 5 of 5 online</div>
   <hr>
   <div class="talk"><span class="mic">🎙</span> Talk <span class="hot">ctrl+alt+space</span></div>
   <hr>
-  <div class="foot"><span>corgi 1.21.40 · daemon running</span><span>Settings…&nbsp;&nbsp;Quit</span></div>
+  <div class="foot"><span>corgi 1.21.46 · daemon running</span><span>Settings…&nbsp;&nbsp;Quit</span></div>
 </div>`;
 
 const page = ({ needs = 2, mood = red, open = true, banner = true, width = 1920, height = 1080 }) => `<!doctype html><meta charset="utf-8"><title>corgi-bar</title>
@@ -63,9 +78,17 @@ const page = ({ needs = 2, mood = red, open = true, banner = true, width = 1920,
   .icons svg{vertical-align:middle;opacity:.9}
   .popover{position:absolute;top:44px;right:280px;width:340px;background:rgba(36,36,40,.86);backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.55);padding:10px;color:#f2f2f5;font-size:13px}
   .popover hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:6px 0}
-  .btn{padding:6px 8px;border-radius:6px;background:rgba(255,255,255,.08)}.plus{font-weight:600;margin-right:4px}
-  .row{display:flex;align-items:center;gap:8px;padding:4px 4px;border-radius:5px}
-  .row:nth-child(4){background:rgba(255,255,255,.08)}
+  .prompt{display:flex;align-items:center;gap:6px}.field{flex:1;padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);opacity:.5}.plus{font-weight:600;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.1)}
+  .hint{font-size:9px;opacity:.45;margin:3px 0 0 2px}
+  .row{padding:3px 0;border-radius:5px}.line{display:flex;align-items:center;gap:8px;padding:1px 4px}
+  .row:nth-child(5){background:rgba(255,255,255,.08)}
+  .ctx{height:2px;margin:2px 4px 0;background:rgba(255,255,255,.08)}.ctx i{display:block;height:100%}
+  .answer{display:flex;gap:4px;font-size:10px}.answer span{padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.14)}.answer .ok{color:${green}}
+  .carry{padding:3px 4px 0}.carry span{font-size:10px;padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.14)}
+  .detail.note{opacity:.9}
+  .badge.slow{font-size:9px}
+  .live{font-size:9px;font-weight:600;opacity:.45;margin-left:2px}
+  .fc{display:flex;align-items:center;gap:6px;font-size:9px;opacity:.75;padding:0 4px 4px}
   .dot{width:8px;height:8px;border-radius:50%;flex:none}
   .txt{flex:1;min-width:0}.name{font-weight:600;font-size:13px}
   .chip{display:inline-block;font-size:9px;font-weight:700;border:1px solid rgba(255,255,255,.45);border-radius:3px;padding:0 3px;margin-left:5px;vertical-align:1px}
@@ -97,7 +120,7 @@ const page = ({ needs = 2, mood = red, open = true, banner = true, width = 1920,
     </div>
   </div>
   ${open ? popover() : ""}
-  ${banner ? `<div class="banner"><div class="ico">${dog("#F5A623", 24)}</div><div><b>acme-api needs you</b><span>permission: Bash</span></div><small>now</small></div>` : ""}
+  ${banner ? `<div class="banner"><div class="ico">${dog("#F5A623", 24)}</div><div><b>acme-api needs you</b><span>Bash go test</span></div><small>now</small></div>` : ""}
   <div class="copy"><h1>corgi-bar</h1><p>Every Claude Code session in your menu bar. Amber while it works, red when it needs you, blue when the account hit its limit. Click a row to jump to it. Talk to dictate.</p></div>
 </div>`;
 

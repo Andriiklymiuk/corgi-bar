@@ -16,13 +16,14 @@ struct Board: Decodable {
     var frontSession: String?
     var notice: String?
     var noticeAt: Date?
+    var accounts: [Account] = []
     var path: String?
     var daemonRunning: Bool = false
 
     static let empty = Board()
 
     enum CodingKeys: String, CodingKey {
-        case updatedAt, size, overflow, needsInput, working, slots, sessions, windows, frontWindow, frontSession, notice, noticeAt, path, daemonRunning
+        case updatedAt, size, overflow, needsInput, working, slots, sessions, windows, frontWindow, frontSession, notice, noticeAt, accounts, path, daemonRunning
     }
 
     init() {}
@@ -41,6 +42,7 @@ struct Board: Decodable {
         frontSession = try c.decodeIfPresent(String.self, forKey: .frontSession)
         notice = try c.decodeIfPresent(String.self, forKey: .notice)
         noticeAt = try c.decodeIfPresent(Date.self, forKey: .noticeAt)
+        accounts = try c.decodeIfPresent([Account].self, forKey: .accounts) ?? []
         path = try c.decodeIfPresent(String.self, forKey: .path)
         daemonRunning = try c.decodeIfPresent(Bool.self, forKey: .daemonRunning) ?? false
     }
@@ -71,6 +73,27 @@ struct Board: Decodable {
         slots.first { $0.sessionId == id }.map { $0.index + 1 }
     }
 
+    /// The directory corgi keeps its files in: sessions.json's parent.
+    var agentDir: String? {
+        path.map { ($0 as NSString).deletingLastPathComponent }
+    }
+
+    /// The session a "next needs you" key jumps to: the one that has waited
+    /// longest, else the one in front.
+    func nextNeedingYou() -> Session? {
+        let waiting = sessions.filter { $0.status == .needsInput }
+        if let oldest = waiting.min(by: { ($0.statusSince ?? .distantPast) < ($1.statusSince ?? .distantPast) }) {
+            return oldest
+        }
+        return session(frontSession)
+    }
+
+    /// Other accounts a limited session could carry on under.
+    func carryTargets(for session: Session) -> [Account] {
+        let own = session.profile ?? "default"
+        return accounts.filter { $0.profile != own && ($0.limits?.fiveHour.percent ?? 0) < 90 }
+    }
+
     /// One state for the icon: the loudest thing on the board.
     var mood: Mood {
         if !daemonRunning { return .off }
@@ -90,6 +113,82 @@ struct Slot: Decodable {
     var overflow: Int?
     var sessionId: String?
     var pinned: Bool?
+    var context: Int?
+    var pending: String?
+    var note: String?
+    var stuck: Bool?
+}
+
+/// How full the session's context window is, from its last completed turn.
+struct ContextFill: Decodable {
+    var tokens: Int64?
+    var window: Int64?
+    var percent: Int
+    var model: String?
+    var at: Date?
+}
+
+/// A permission prompt the session is waiting on.
+struct Pending: Decodable {
+    var tool: String
+    var subject: String?
+    var at: Date?
+
+    var text: String {
+        guard let subject, !subject.isEmpty else { return tool }
+        return "\(tool) \(subject)"
+    }
+}
+
+/// The /usage picture Claude Code last cached for one account.
+struct UsageLimits: Decodable {
+    struct Window: Decodable {
+        var percent: Int
+        var resetsAt: Date?
+    }
+    var fetchedAt: Date?
+    var fiveHour: Window
+    var sevenDay: Window
+}
+
+/// Where one limit is heading at the current pace.
+struct WindowForecast: Decodable {
+    var percentPerHour: Double
+    var exhaustAt: Date?
+    var safe: Bool
+    var samples: Int
+}
+
+struct Forecast: Decodable {
+    var fiveHour: WindowForecast?
+    var sevenDay: WindowForecast?
+}
+
+/// One Claude account the board's sessions run under.
+struct Account: Decodable, Identifiable {
+    var profile: String
+    var configDir: String?
+    var limits: UsageLimits?
+    var forecast: Forecast?
+    var sessions: Int = 0
+    var id: String { profile }
+
+    enum CodingKeys: String, CodingKey { case profile, configDir, limits, forecast, sessions }
+    init(profile: String, configDir: String? = nil, limits: UsageLimits? = nil, forecast: Forecast? = nil, sessions: Int = 0) {
+        self.profile = profile
+        self.configDir = configDir
+        self.limits = limits
+        self.forecast = forecast
+        self.sessions = sessions
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        profile = try c.decodeIfPresent(String.self, forKey: .profile) ?? "default"
+        configDir = try c.decodeIfPresent(String.self, forKey: .configDir)
+        limits = try c.decodeIfPresent(UsageLimits.self, forKey: .limits)
+        forecast = try c.decodeIfPresent(Forecast.self, forKey: .forecast)
+        sessions = try c.decodeIfPresent(Int.self, forKey: .sessions) ?? 0
+    }
 }
 
 struct Window: Decodable {
@@ -139,6 +238,7 @@ struct Session: Decodable, Identifiable {
     var label: String
     var display: String?
     var cwd: String?
+    var folder: String?
     var profile: String?
     var status: Status
     var statusSince: Date?
@@ -147,8 +247,26 @@ struct Session: Decodable, Identifiable {
     var host: SessionHost
     var focusError: String?
     var focusAt: Date?
+    var context: ContextFill?
+    var title: String?
+    var pending: Pending?
+    var note: String?
+    var stuck: Bool?
 
     var name: String { display ?? label }
+
+    /// The workspace the session belongs to, for a mute that covers all of it.
+    var workspaceKey: String? { folder ?? cwd }
+
+    var contextPercent: Int? {
+        guard let p = context?.percent, p > 0 else { return nil }
+        return min(100, p)
+    }
+
+    /// The permission prompt to answer, only while the session waits on it.
+    var answerable: Pending? { status == .needsInput ? pending : nil }
+
+    var isStuck: Bool { stuck == true && status == .working }
 
     /// The two-letter chip for another account: ~/.claude-work → WK, skp → SP.
     var profileChip: String? {

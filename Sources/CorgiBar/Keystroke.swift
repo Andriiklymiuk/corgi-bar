@@ -48,4 +48,27 @@ struct Chord: Equatable {
         usleep(20_000)
         up.post(tap: .cghidEventTap)
     }
+
+    /// Type text into whatever window is in front, as unicode key events.
+    static func type(_ text: String) throws {
+        guard AXIsProcessTrusted() else { throw SendError.notTrusted }
+        let source = CGEventSource(stateID: .combinedSessionState)
+        for chunk in Array(text.utf16).chunked(20) {
+            guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else { throw SendError.badChord }
+            var units = chunk
+            down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: &units)
+            up.keyboardSetUnicodeString(stringLength: units.count, unicodeString: &units)
+            down.post(tap: .cghidEventTap)
+            usleep(5_000)
+            up.post(tap: .cghidEventTap)
+            usleep(5_000)
+        }
+    }
+}
+
+private extension Array {
+    func chunked(_ size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map { Array(self[$0..<Swift.min($0 + size, count)]) }
+    }
 }

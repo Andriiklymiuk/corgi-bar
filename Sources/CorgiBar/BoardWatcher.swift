@@ -26,10 +26,11 @@ final class BoardWatcher: ObservableObject {
     }
 
     /// `corgi agent status --json` scans transcripts for token counts, so it
-    /// runs once a minute and when the menu opens, not on every board change.
+    /// runs every five minutes, not on every board change. Limits and
+    /// forecasts come from the board itself.
     private var statusFetchedAt: Date = .distantPast
     func refreshStatus(force: Bool = false) {
-        guard force || Date().timeIntervalSince(statusFetchedAt) > 60 else { return }
+        guard force || Date().timeIntervalSince(statusFetchedAt) > 300 else { return }
         statusFetchedAt = Date()
         DispatchQueue.global(qos: .utility).async {
             let r = Corgi.shared.run(["agent", "status", "--json"])

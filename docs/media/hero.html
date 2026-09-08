@@ -15,9 +15,17 @@
   .icons svg{vertical-align:middle;opacity:.9}
   .popover{position:absolute;top:44px;right:280px;width:340px;background:rgba(36,36,40,.86);backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.55);padding:10px;color:#f2f2f5;font-size:13px}
   .popover hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:6px 0}
-  .btn{padding:6px 8px;border-radius:6px;background:rgba(255,255,255,.08)}.plus{font-weight:600;margin-right:4px}
-  .row{display:flex;align-items:center;gap:8px;padding:4px 4px;border-radius:5px}
-  .row:nth-child(4){background:rgba(255,255,255,.08)}
+  .prompt{display:flex;align-items:center;gap:6px}.field{flex:1;padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);opacity:.5}.plus{font-weight:600;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.1)}
+  .hint{font-size:9px;opacity:.45;margin:3px 0 0 2px}
+  .row{padding:3px 0;border-radius:5px}.line{display:flex;align-items:center;gap:8px;padding:1px 4px}
+  .row:nth-child(5){background:rgba(255,255,255,.08)}
+  .ctx{height:2px;margin:2px 4px 0;background:rgba(255,255,255,.08)}.ctx i{display:block;height:100%}
+  .answer{display:flex;gap:4px;font-size:10px}.answer span{padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.14)}.answer .ok{color:#30A46C}
+  .carry{padding:3px 4px 0}.carry span{font-size:10px;padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.14)}
+  .detail.note{opacity:.9}
+  .badge.slow{font-size:9px}
+  .live{font-size:9px;font-weight:600;opacity:.45;margin-left:2px}
+  .fc{display:flex;align-items:center;gap:6px;font-size:9px;opacity:.75;padding:0 4px 4px}
   .dot{width:8px;height:8px;border-radius:50%;flex:none}
   .txt{flex:1;min-width:0}.name{font-weight:600;font-size:13px}
   .chip{display:inline-block;font-size:9px;font-weight:700;border:1px solid rgba(255,255,255,.45);border-radius:3px;padding:0 3px;margin-left:5px;vertical-align:1px}
@@ -50,70 +58,103 @@
   </div>
   
 <div class="popover">
-  <div class="btn"><span class="plus">＋</span> New session</div>
+  <div class="prompt"><span class="field">Prompt for corgi</span><span class="plus">＋</span></div>
+  <div class="hint">Return sends · ⌥Return types without Enter · ctrl+alt+p</div>
   <hr>
   
 <div class="row">
-  <span class="dot" style="background:#F5A623"></span>
-  <div class="txt">
-    <div class="name">corgi<span class="front">●</span></div>
-    <div class="detail">Bash</div>
-  </div>
-  <div class="right"><div class="status" style="color:#F5A623">WORKING</div><div class="elapsed">15s</div></div>
-</div>
-<div class="row">
-  <span class="dot" style="background:#E5484D"></span>
-  <div class="txt">
-    <div class="name">acme-api<span class="chip">WK</span></div>
-    <div class="detail">permission: Bash</div>
-  </div>
-  <div class="right"><div class="status" style="color:#E5484D">NEEDS YOU</div><div class="elapsed">9m</div></div>
-</div>
-<div class="row">
-  <span class="dot" style="background:#E5484D"></span>
-  <div class="txt">
-    <div class="name">web<span class="chip">WK</span></div>
-    <div class="detail">question</div>
-  </div>
-  <div class="right"><div class="status" style="color:#E5484D">NEEDS YOU</div><div class="elapsed">2m</div></div>
-</div>
-<div class="row">
-  <span class="dot" style="background:#30A46C"></span>
-  <div class="txt">
-    <div class="name">agent-deck</div>
+  <div class="line">
+    <span class="dot" style="background:#F5A623"></span>
+    <div class="txt">
+      <div class="name">corgi<span class="front">●</span></div>
+      <div class="detail">Edit registry.go</div>
+    </div>
+    <div class="right"><div class="status" style="color:#F5A623">WORKING</div><div class="elapsed">15s</div></div>
     
   </div>
-  <div class="right"><div class="status" style="color:#30A46C">DONE</div><div class="elapsed">11m</div></div>
+  <div class="ctx"><i style="width:41%;background:rgba(255,255,255,.35)"></i></div>
+  
 </div>
 <div class="row">
-  <span class="dot" style="background:#5B8DEF"></span>
-  <div class="txt">
-    <div class="name">mobile<span class="chip">WK</span></div>
-    <div class="detail">resets 1:10pm</div>
+  <div class="line">
+    <span class="dot" style="background:#E5484D"></span>
+    <div class="txt">
+      <div class="name">acme-api<span class="chip">WK</span></div>
+      <div class="detail">permission: Bash go test</div>
+    </div>
+    <div class="right"><div class="status" style="color:#E5484D">NEEDS YOU</div><div class="elapsed">9m</div></div>
+    <div class="answer"><span class="ok">Allow</span><span>Deny</span></div>
   </div>
-  <div class="right"><div class="status" style="color:#5B8DEF">LIMIT</div><div class="elapsed"></div></div>
+  <div class="ctx"><i style="width:72%;background:#F5A623"></i></div>
+  
 </div>
 <div class="row">
-  <span class="dot" style="background:#8E8E93"></span>
-  <div class="txt">
-    <div class="name">billing</div>
+  <div class="line">
+    <span class="dot" style="background:#E5484D"></span>
+    <div class="txt">
+      <div class="name">Fix the login redirect<span class="chip">web</span><span class="chip">WK</span></div>
+      <div class="detail">question</div>
+    </div>
+    <div class="right"><div class="status" style="color:#E5484D">NEEDS YOU</div><div class="elapsed">2m</div></div>
     
   </div>
-  <div class="right"><div class="status" style="color:#8E8E93">IDLE</div><div class="elapsed">31m</div></div>
+  <div class="ctx"><i style="width:88%;background:#E5484D"></i></div>
+  
+</div>
+<div class="row">
+  <div class="line">
+    <span class="dot" style="background:#30A46C"></span>
+    <div class="txt">
+      <div class="name">agent-deck</div>
+      <div class="detail note">waiting on PR review</div>
+    </div>
+    <div class="right"><div class="status" style="color:#30A46C">DONE</div><div class="elapsed">11m</div></div>
+    
+  </div>
+  <div class="ctx"><i style="width:23%;background:rgba(255,255,255,.35)"></i></div>
+  
+</div>
+<div class="row">
+  <div class="line">
+    <span class="dot" style="background:#5B8DEF"></span>
+    <div class="txt">
+      <div class="name">mobile<span class="chip">WK</span></div>
+      <div class="detail">resets 1:10pm</div>
+    </div>
+    <div class="right"><div class="status" style="color:#5B8DEF">LIMIT</div><div class="elapsed"></div></div>
+    
+  </div>
+  
+  <div class="carry"><span>Carry to default</span></div>
+</div>
+<div class="row">
+  <div class="line">
+    <span class="dot" style="background:#8E8E93"></span>
+    <div class="txt">
+      <div class="name">billing</div>
+      
+    </div>
+    <div class="right"><div class="status" style="color:#8E8E93">IDLE</div><div class="elapsed">31m</div></div>
+    
+  </div>
+  
+  
 </div>
   <hr>
-  <div class="acct"><span class="path">~/.claude</span><span class="use">178.0M today · 1.6B week</span></div>
+  <div class="acct"><span class="path">~/.claude</span><span class="live">4 live</span><span class="use">178.0M today · 1.6B week</span></div>
   <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:55%;background:#30A46C"></i></span><span class="pct" style="color:#30A46C">55%</span><span class="at">5:10pm</span>
     <span class="lbl">week</span><span class="bar"><i style="width:10%;background:#30A46C"></i></span><span class="pct" style="color:#30A46C">10%</span><span class="at">mon 9am</span></div>
-  <div class="acct"><span class="chip">WK</span><span class="path">~/.claude-work</span><span class="limit">resets 1:10pm</span></div>
+  <div class="fc"><svg class="spark" width="60" height="12" viewBox="0 0 60 12"><polyline fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2" points="0,10 5.4,9.681818181818182 10.8,9.363636363636363 16.200000000000003,9.045454545454545 21.6,8.727272727272727 27,8.40909090909091 32.400000000000006,8.09090909090909 37.800000000000004,7.7727272727272725 43.2,7.454545454545454 48.6,7.136363636363636 54,6.818181818181818 59.400000000000006,6.5"/></svg>12.5%/h · lasts until the reset</div>
+  <div class="acct"><span class="chip">WK</span><span class="path">~/.claude-work</span><span class="live">2 live</span><span class="limit">resets 1:10pm</span></div>
   <div class="bars"><span class="lbl">5h</span><span class="bar"><i style="width:100%;background:#E5484D"></i></span><span class="pct" style="color:#E5484D">100%</span><span class="at">1:10pm</span>
     <span class="lbl">week</span><span class="bar"><i style="width:64%;background:#F5A623"></i></span><span class="pct" style="color:#F5A623">64%</span><span class="at">thu 6am</span></div>
+  <div class="fc" style="color:#E5484D"><svg class="spark" width="60" height="12" viewBox="0 0 60 12"><polyline fill="none" stroke="#E5484D" stroke-width="1.2" points="0,8 5.4,7.454545454545454 10.8,6.909090909090909 16.200000000000003,6.363636363636363 21.6,5.818181818181818 27,5.272727272727272 32.400000000000006,4.7272727272727275 37.800000000000004,4.181818181818181 43.2,3.6363636363636367 48.6,3.09090909090909 54,2.545454545454545 59.400000000000006,2"/></svg>62%/h · runs out 12:41 (before the 1:10pm reset)</div>
   <hr>
   <div class="remote">▸ Remote · 5 of 5 online</div>
   <hr>
   <div class="talk"><span class="mic">🎙</span> Talk <span class="hot">ctrl+alt+space</span></div>
   <hr>
-  <div class="foot"><span>corgi 1.21.40 · daemon running</span><span>Settings…&nbsp;&nbsp;Quit</span></div>
+  <div class="foot"><span>corgi 1.21.46 · daemon running</span><span>Settings…&nbsp;&nbsp;Quit</span></div>
 </div>
   
   <div class="copy"><h1>corgi-bar</h1><p>Every Claude Code session in your menu bar. Amber while it works, red when it needs you, blue when the account hit its limit. Click a row to jump to it. Talk to dictate.</p></div>
