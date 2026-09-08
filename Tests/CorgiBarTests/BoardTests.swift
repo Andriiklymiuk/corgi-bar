@@ -46,6 +46,24 @@ final class BoardTests: XCTestCase {
         XCTAssertNil(Chord.parse(""))
     }
 
+    func testAccountsGroupUsageByConfigDirAndCarryTheLimit() throws {
+        let json = #"{"running":true,"version":"1.21.40","workspaces":[{"workspaceId":"corgi","running":true}],"usage":[{"workspaceId":"corgi","configDir":"","tokensToday":10,"tokensWeek":100},{"workspaceId":"idid","configDir":"","tokensToday":5,"tokensWeek":50},{"workspaceId":"onboarding","configDir":"/Users/me/.claude-skp","tokensToday":7,"tokensWeek":70}],"dashboardUrl":"https://x.example"}"#
+        let status = try JSONDecoder().decode(AgentStatus.self, from: json.data(using: .utf8)!)
+        var board = try fixture()
+        board.sessions[2].status = .limited
+        board.sessions[2].profile = "skp"
+        board.sessions[2].detail = "resets 1:10pm"
+        let accounts = status.accounts(board: board)
+        XCTAssertEqual(accounts.map(\.profile), ["default", "skp"])
+        XCTAssertEqual(accounts[0].tokensToday, 15)
+        XCTAssertEqual(accounts[0].chip, "")
+        XCTAssertEqual(accounts[1].chip, "SK")
+        XCTAssertEqual(accounts[1].limitedUntil, "resets 1:10pm")
+        XCTAssertEqual(formatTokens(167_252_038), "167.3M")
+        XCTAssertEqual(formatTokens(2_613_997_951), "2.6B")
+        XCTAssertEqual(formatTokens(950), "950")
+    }
+
     func testElapsedBuckets() {
         let now = Date()
         XCTAssertEqual(elapsedText(since: now.addingTimeInterval(-17), now: now), "15s")

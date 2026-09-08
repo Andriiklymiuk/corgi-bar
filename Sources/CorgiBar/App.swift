@@ -80,7 +80,16 @@ struct MenuBarLabel: View {
         }
     }
 
+    private static var cache: [Mood: NSImage] = [:]
+
     static func icon(for mood: Mood) -> NSImage {
+        if let cached = cache[mood] { return cached }
+        let image = draw(mood)
+        cache[mood] = image
+        return image
+    }
+
+    private static func draw(_ mood: Mood) -> NSImage {
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
             let symbol = NSImage(systemSymbolName: "dog", accessibilityDescription: nil) ?? NSImage(systemSymbolName: "pawprint", accessibilityDescription: nil)
@@ -135,6 +144,8 @@ struct BoardView: View {
             ForEach(watcher.board.orderedSessions) { session in
                 SessionRow(session: session, board: watcher.board, now: now, talk: talk)
             }
+            AccountsView(watcher: watcher)
+            RemoteView(watcher: watcher)
             Divider()
             HStack {
                 Button {
@@ -165,8 +176,9 @@ struct BoardView: View {
             }
         }
         .padding(10)
-        .frame(width: 320)
+        .frame(width: 340)
         .onReceive(ticker) { now = $0 }
+        .onAppear { watcher.refreshStatus(force: true) }
     }
 
     private var footer: String {
@@ -255,6 +267,75 @@ struct SessionRow: View {
         case .done: return Color(red: 0.19, green: 0.64, blue: 0.42)
         case .limited: return Color(red: 0.36, green: 0.55, blue: 0.94)
         case .stale, .gone, .unknown: return Color.secondary
+        }
+    }
+}
+
+
+/// One line per Claude account: tokens today and this week, and the
+/// usage-limit reset when a session under it hit the limit.
+struct AccountsView: View {
+    @ObservedObject var watcher: BoardWatcher
+
+    var body: some View {
+        let accounts = watcher.status.accounts(board: watcher.board)
+        if !accounts.isEmpty {
+            Divider()
+            ForEach(accounts) { a in
+                HStack(spacing: 6) {
+                    if !a.chip.isEmpty {
+                        Text(a.chip).font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary, lineWidth: 1))
+                    }
+                    Text(a.title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer()
+                    if let until = a.limitedUntil {
+                        Text(until).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(red: 0.36, green: 0.55, blue: 0.94))
+                    } else {
+                        Text("\(formatTokens(a.tokensToday)) today · \(formatTokens(a.tokensWeek)) week").font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+}
+
+/// The supervised remote sessions corgi runs per workspace: online or not,
+/// open in the Claude app, start or stop, and the dashboard.
+struct RemoteView: View {
+    @ObservedObject var watcher: BoardWatcher
+    @AppStorage("remoteExpanded") private var expanded = false
+
+    var body: some View {
+        if watcher.status.running, !watcher.status.workspaces.isEmpty {
+            Divider()
+            DisclosureGroup(isExpanded: $expanded) {
+                ForEach(watcher.status.workspaces) { w in
+                    HStack(spacing: 6) {
+                        Circle().fill(w.running ? Color(red: 0.19, green: 0.64, blue: 0.42) : Color.secondary).frame(width: 6, height: 6)
+                        Text(w.workspaceId).font(.system(size: 11))
+                        Spacer()
+                        if let url = w.sessionUrl, let u = URL(string: url) {
+                            Button("Open") { NSWorkspace.shared.open(u) }.font(.system(size: 10)).buttonStyle(.link)
+                        }
+                        Button(w.running ? "Stop" : "Start") {
+                            Corgi.shared.runInBackground(["agent", "session", w.running ? "stop" : "start", w.workspaceId]) { _ in
+                                self.watcher.refreshStatus(force: true)
+                            }
+                        }.font(.system(size: 10)).buttonStyle(.link)
+                    }
+                    .padding(.horizontal, 4)
+                }
+                if let url = watcher.status.dashboardUrl, let u = URL(string: url) {
+                    Button { NSWorkspace.shared.open(u) } label: {
+                        Label("Open dashboard", systemImage: "iphone").font(.system(size: 11))
+                    }.buttonStyle(.link).padding(.horizontal, 4)
+                }
+            } label: {
+                let online = watcher.status.workspaces.filter { $0.running }.count
+                Text("Remote · \(online) of \(watcher.status.workspaces.count) online").font(.system(size: 11, weight: .semibold))
+            }
         }
     }
 }

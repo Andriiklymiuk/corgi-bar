@@ -8,6 +8,8 @@ opens a `claude` terminal in the window in front, under that folder's
 account. **Talk** (or `ctrl+alt+space` anywhere) dictates into the session
 in front of you: press to talk, press again to send.
 
+Below the sessions: one line per Claude account (`~/.claude`, `~/.claude-work`, …) with tokens today and this week, or the reset time when that account hit its usage limit. Then the remote sessions corgi supervises per workspace — online or not, Open, Start/Stop — and the phone dashboard.
+
 corgi-bar draws the board that [corgi](https://github.com/Andriiklymiuk/corgi)
 keeps and turns clicks into `corgi agent …` commands. It holds no state of
 its own and never starts the daemon. The same board on Stream Deck keys is

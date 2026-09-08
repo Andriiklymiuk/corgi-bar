@@ -9,6 +9,7 @@ final class BoardWatcher: ObservableObject {
     @Published private(set) var board: Board = .empty
     @Published private(set) var corgiVersion: String?
     @Published private(set) var corgiPresent = true
+    @Published private(set) var status: AgentStatus = .empty
 
     private var path: String?
     private var source: DispatchSourceFileSystemObject?
@@ -18,8 +19,22 @@ final class BoardWatcher: ObservableObject {
 
     func start() {
         refreshFromCLI()
+        refreshStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
+        }
+    }
+
+    /// `corgi agent status --json` scans transcripts for token counts, so it
+    /// runs once a minute and when the menu opens, not on every board change.
+    private var statusFetchedAt: Date = .distantPast
+    func refreshStatus(force: Bool = false) {
+        guard force || Date().timeIntervalSince(statusFetchedAt) > 60 else { return }
+        statusFetchedAt = Date()
+        DispatchQueue.global(qos: .utility).async {
+            let r = Corgi.shared.run(["agent", "status", "--json"])
+            guard r.ok, let data = r.stdout.data(using: .utf8), let status = try? JSONDecoder().decode(AgentStatus.self, from: data) else { return }
+            DispatchQueue.main.async { self.status = status }
         }
     }
 
@@ -57,6 +72,7 @@ final class BoardWatcher: ObservableObject {
             return
         }
         readFile(path)
+        refreshStatus()
     }
 
     private func watch(_ path: String) {
@@ -66,22 +82,25 @@ final class BoardWatcher: ObservableObject {
         guard fd >= 0 else { return }
         let src = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
         src.setEventHandler { [weak self] in
+            // The directory carries every corgi file (events, status, commands);
+            // coalesce the burst and let readFile skip an unchanged sessions.json.
             guard let self else { return }
-            self.readFile(path)
+            self.pending?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.readFile(path) }
+            self.pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
         }
         src.setCancelHandler { [fd] in close(fd) }
         src.resume()
         source = src
     }
 
+    private var pending: DispatchWorkItem?
+    private var lastModified: Date?
+
     private func readFile(_ path: String) {
-        guard let data = FileManager.default.contents(atPath: path), let board = try? Board.decode(data) else { return }
-        // sessions.json itself has no daemonRunning; keep what the CLI said unless the file stopped moving.
-        var merged = board
-        merged.daemonRunning = self.board.daemonRunning || board.daemonRunning
-        merged.path = path
-        if let at = board.updatedAt, let last = lastUpdatedAt, at <= last, self.board.daemonRunning {
-            // Unchanged. Every 12th tick (a minute) re-check the daemon through the CLI.
+        let modified = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date) ?? nil
+        if let modified, let last = lastModified, modified == last, board.daemonRunning {
             staleTicks += 1
             if staleTicks >= 12 {
                 staleTicks = 0
@@ -89,6 +108,12 @@ final class BoardWatcher: ObservableObject {
             }
             return
         }
+        lastModified = modified
+        guard let data = FileManager.default.contents(atPath: path), let board = try? Board.decode(data) else { return }
+        // sessions.json itself has no daemonRunning; keep what the CLI said unless the file stopped moving.
+        var merged = board
+        merged.daemonRunning = self.board.daemonRunning || board.daemonRunning
+        merged.path = path
         staleTicks = 0
         apply(merged)
     }
