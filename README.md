@@ -1,5 +1,51 @@
 # corgi-bar
 
-Claude Code sessions in the macOS menu bar, drawn from corgi's session board.
-Not built yet — `SPEC.md` is the plan. The same board on Stream Deck keys is
-[agent-deck](https://github.com/Andriiklymiuk/agent-deck).
+Claude Code sessions in the macOS menu bar. A dog that turns amber while a
+session works, red with a count when one needs you, blue when the account
+hit its usage limit. Click it: one row per session — click to jump to its
+window and terminal tab, right-click to dismiss or pin. **New session**
+opens a `claude` terminal in the window in front, under that folder's
+account. **Talk** (or `ctrl+alt+space` anywhere) dictates into the session
+in front of you: press to talk, press again to send.
+
+corgi-bar draws the board that [corgi](https://github.com/Andriiklymiuk/corgi)
+keeps and turns clicks into `corgi agent …` commands. It holds no state of
+its own and never starts the daemon. The same board on Stream Deck keys is
+[agent-deck](https://github.com/Andriiklymiuk/agent-deck); `SPEC.md` has the
+full rules.
+
+## Setup
+
+```bash
+brew install andriiklymiuk/homebrew-tools/corgi
+corgi agent install          # the daemon, at login
+corgi agent track enable     # hooks into your Claude Code settings
+```
+
+Install the [corgi VS Code extension](https://marketplace.visualstudio.com/items?itemName=corgi.corgi)
+and reload each VS Code window once, so a click lands on the exact tab and
+Talk knows which window is in front.
+
+Then the app: download `corgi-bar.zip` from [Releases](../../releases),
+unzip into `/Applications`, open it. Or from source: `make install`.
+
+Talk presses Claude Code's dictation chord in the window in front, which
+needs **Accessibility** for corgi-bar (System Settings → Privacy & Security →
+Accessibility; the app asks the first time). For terminal sessions run
+`/voice tap` once in Claude Code and bind `voice:pushToTalk` to `ctrl+y` in
+`~/.claude/keybindings.json`; the Claude Code panel takes its own `cmd+d`,
+then Enter after 1.5 s to send. All of that is in Settings.
+
+## Development
+
+```bash
+make build      # swift build -c release
+make test       # swift test
+make app        # build/corgi-bar.app, ad-hoc signed
+make run        # open it
+make install    # copy to /Applications
+```
+
+Release: bump `VERSION`, push `main`; CI builds the app, tags `v<VERSION>`
+and attaches the zip. `Casks/corgi-bar.rb` is the Homebrew cask to copy
+into the `andriiklymiuk/homebrew-tools` tap once a release exists.
