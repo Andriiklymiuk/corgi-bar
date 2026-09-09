@@ -42,6 +42,15 @@ each other account that the workspace lists and that has budget left. The
 conversation continues there (`corgi agent carry`). When the limit lifts,
 you get a notification.
 
+## Remote
+
+The workspaces the daemon supervises for your phone. A grey dot with
+"device" is a machine reachable from the Claude app with no session open
+and nothing spent. Green is a session. **Stop** ends a session and keeps
+the device. **Pause** stops supervising that workspace
+(`corgi agent workspaces resume` brings it back). **Open dashboard** is the
+phone launcher.
+
 ## Talk and type
 
 **Talk** (`ctrl+alt+space` anywhere): press to speak, press again to send.

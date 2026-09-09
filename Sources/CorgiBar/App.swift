@@ -565,7 +565,10 @@ struct AccountsView: View {
                                 if let points = samples[a.profile], points.count > 1 {
                                     Sparkline(values: points.map(\.fiveHour)).frame(width: 60, height: 12)
                                 }
-                                if let line = ForecastLine.make(a.forecast?.fiveHour, resetsAt: l.fiveHour.resetsAt) {
+                                if a.limitedUntil != nil || l.fiveHour.percent >= 100 {
+                                    Text(l.fiveHour.resetsAt.map { "limit lifts \(ForecastLine.clock($0))" } ?? "limit reached")
+                                        .font(.system(size: 9)).foregroundStyle(Palette.blue).lineLimit(1)
+                                } else if let line = ForecastLine.make(a.forecast?.fiveHour, resetsAt: l.fiveHour.resetsAt) {
                                     Text(line.text).font(.system(size: 9)).foregroundStyle(line.danger ? Palette.red : Color.secondary).lineLimit(1)
                                 }
                             }
@@ -633,18 +636,32 @@ struct RemoteView: View {
             Divider()
             DisclosureGroup(isExpanded: $expanded) {
                 ForEach(watcher.status.workspaces) { w in
+                    let live = w.running && !(w.deviceOnly ?? false)
                     HStack(spacing: 6) {
-                        Circle().fill(w.running ? Palette.green : Color.secondary).frame(width: 6, height: 6)
+                        Circle().fill(live ? Palette.green : Color.secondary).frame(width: 6, height: 6)
                         Text(w.workspaceId).font(.system(size: 11))
+                        if w.running, !live {
+                            Text("device").font(.system(size: 9)).foregroundStyle(.tertiary)
+                                .help("Reachable from the phone and the Claude app; no session open, nothing spent")
+                        }
                         Spacer()
                         if let url = w.sessionUrl, let u = URL(string: url) {
                             Button("Open") { NSWorkspace.shared.open(u) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
                         }
-                        Button(w.running ? "Stop" : "Start") {
-                            Corgi.shared.runInBackground(["agent", "session", w.running ? "stop" : "start", w.workspaceId]) { _ in
-                                self.watcher.refreshStatus(force: true)
-                            }
-                        }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+                        if live {
+                            Button("Stop") { session("stop", w.workspaceId) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+                                .help("End the session; the device stays online")
+                        } else if !w.running {
+                            Button("Start") { session("start", w.workspaceId) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+                        }
+                        if w.running {
+                            Button("Pause") {
+                                Corgi.shared.runInBackground(["agent", "workspaces", "pause", w.workspaceId]) { _ in
+                                    self.watcher.refreshStatus(force: true)
+                                }
+                            }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(.secondary)
+                                .help("Stop supervising this workspace: no device at login, no restarts. `corgi agent workspaces resume` brings it back")
+                        }
                     }
                     .padding(.horizontal, 4)
                 }
@@ -654,11 +671,27 @@ struct RemoteView: View {
                     }.buttonStyle(.plain).foregroundStyle(Palette.blue).padding(.horizontal, 4)
                 }
             } label: {
-                let online = watcher.status.workspaces.filter { $0.running }.count
-                Text("Remote · \(online) of \(watcher.status.workspaces.count) online").font(.system(size: 11, weight: .semibold))
+                let live = watcher.status.workspaces.filter { $0.running && !($0.deviceOnly ?? false) }.count
+                let devices = watcher.status.workspaces.filter { $0.running && ($0.deviceOnly ?? false) }.count
+                Text(remoteSummary(live: live, devices: devices, total: watcher.status.workspaces.count))
+                    .font(.system(size: 11, weight: .semibold))
             }
         }
     }
+
+    private func session(_ verb: String, _ id: String) {
+        Corgi.shared.runInBackground(["agent", "session", verb, id]) { _ in
+            self.watcher.refreshStatus(force: true)
+        }
+    }
+}
+
+func remoteSummary(live: Int, devices: Int, total: Int) -> String {
+    var parts: [String] = []
+    if live > 0 { parts.append("\(live) session\(live == 1 ? "" : "s")") }
+    if devices > 0 { parts.append("\(devices) device\(devices == 1 ? "" : "s")") }
+    if parts.isEmpty { parts.append("\(total) off") }
+    return "Remote · " + parts.joined(separator: " · ")
 }
 
 /// One rolling limit as /usage shows it: a thin bar, the percent, the reset time.

@@ -3,7 +3,7 @@
 // close-ups and the animated stories. The rows mirror App.swift (grouped by
 // workspace, accent bar on the front session, opaque window background), so
 // keep the two in step when the layout changes. scripts/capture.sh runs it.
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 
 // macOS dark system colours: what Palette in App.swift resolves to.
 const amber = "#FF9F0A", red = "#FF453A", green = "#30D158", blue = "#0A84FF";
@@ -12,7 +12,10 @@ const ground = "#141416", window = "#2A2A2D";
 
 const ctxColor = (p) => (p > 85 ? red : p > 60 ? amber : "rgba(235,235,245,.28)");
 
-const dog = (color, size = 16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.2 8.5 3H5l-1 5 3 2.5V14a5 5 0 0 0 5 5h2a5 5 0 0 0 5-5v-3.5L22 8l-1-5h-3.5L16 5.2"/><path d="M9 12h.01M15 12h.01M12 15v1"/></svg>`;
+// The menu bar item is the SF Symbol "dog", rendered by scripts/dog-symbol.swift.
+const dogPng = Object.fromEntries(["quiet", "working", "needs", "done", "limited"].map((m) => [m, readFileSync(`docs/media/dog/${m}.png`).toString("base64")]));
+const moodOf = { "#e8e8ea": "quiet", [amber]: "working", [red]: "needs", [green]: "done", [blue]: "limited" };
+const dog = (color, size = 16) => `<img width="${size}" height="${size}" style="vertical-align:middle" src="data:image/png;base64,${dogPng[moodOf[color] ?? "quiet"]}">`;
 const mic = (color) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>`;
 const rec = `<svg width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="${red}" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="${red}"/></svg>`;
 
@@ -170,7 +173,7 @@ const desktop = ({ t = 1, open = true, banner = false, needs = needsAt(t), mood 
   .item{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px}
   .item.active{background:rgba(255,255,255,.18)}
   .badge{font-weight:700;font-size:13px}
-  .icons svg{vertical-align:middle;opacity:.95}
+  .icons svg,.icons img{vertical-align:middle;opacity:.95}
   .popover{position:absolute;top:44px;right:280px}
   .banner{position:absolute;top:52px;right:20px}
   .copy{position:absolute;left:120px;bottom:120px;color:#fff;max-width:640px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
@@ -205,7 +208,7 @@ const item = ({ mood, needs }) => `<!doctype html><meta charset="utf-8"><title>c
   html,body{width:600px;height:300px;overflow:hidden;background:${ground}}
   .strip{position:absolute;left:0;top:0;width:600px;height:300px;display:flex;align-items:center;justify-content:center;color:#f2f2f5}
   .item{display:flex;align-items:center;gap:16px;padding:14px 28px;border-radius:20px;background:rgba(255,255,255,.06)}
-  .item svg{width:72px;height:72px}.badge{font-weight:700;font-size:56px}
+  .item img{width:72px;height:72px}.badge{font-weight:700;font-size:56px}
 </style>
 <div class="strip"><div class="item">${dog(mood, 40)}${needs ? `<span class="badge">${needs}</span>` : ""}</div></div>`;
 

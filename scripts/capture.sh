@@ -5,6 +5,7 @@
 set -e
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 cd "$(dirname "$0")/.."
+swift scripts/dog-symbol.swift
 node scripts/showcase.mjs
 M=docs/media
 F=$M/frames
