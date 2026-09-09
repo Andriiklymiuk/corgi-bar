@@ -382,7 +382,7 @@ struct SessionRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
                     Text(session.title ?? session.shortName).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    if session.title != nil, session.shortName != session.label {
+                    if let title = session.title, session.shortName != session.label, session.shortName != title {
                         Chip(session.shortName)
                     }
                     if showProfile, let chip = session.profileChip {
