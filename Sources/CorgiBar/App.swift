@@ -157,10 +157,13 @@ struct MenuBarLabel: View {
 }
 
 enum Palette {
-    static let amber = Color(red: 0.96, green: 0.65, blue: 0.14)
-    static let red = Color(red: 0.90, green: 0.28, blue: 0.30)
-    static let green = Color(red: 0.19, green: 0.64, blue: 0.42)
-    static let blue = Color(red: 0.36, green: 0.55, blue: 0.94)
+    // System colours: AppKit picks the light or dark variant, and keeps them
+    // legible over the popover's translucent material, which fixed tints
+    // tuned for one appearance are not.
+    static let amber = Color(nsColor: .systemOrange)
+    static let red = Color(nsColor: .systemRed)
+    static let green = Color(nsColor: .systemGreen)
+    static let blue = Color(nsColor: .systemBlue)
 
     static func status(_ s: Status) -> Color {
         switch s {
@@ -232,14 +235,14 @@ struct BoardView: View {
                     talk.press()
                 } label: {
                     Label(talk.state == .recording ? "REC · press to send" : "Talk", systemImage: talk.state == .recording ? "record.circle.fill" : "mic")
-                        .foregroundStyle(talk.state == .recording ? Color.red : Color.primary)
+                        .foregroundStyle(talk.state == .recording ? Palette.red : Color.primary)
                 }
                 .keyboardShortcut("t", modifiers: [.command])
                 Spacer()
                 Text(settings.hotKey).font(.caption).foregroundStyle(.secondary)
             }
             if let err = talk.lastError {
-                Text(err).font(.caption).foregroundStyle(.red)
+                Text(err).font(.caption).foregroundStyle(Palette.red)
             }
             if let notice = watcher.board.notice, let at = watcher.board.noticeAt, now.timeIntervalSince(at) < 60 {
                 Text(notice).font(.caption).foregroundStyle(.orange)
@@ -249,7 +252,7 @@ struct BoardView: View {
                 Text(footer).font(.caption).foregroundStyle(.secondary)
                 if let v = updates.available {
                     Button("\(v) available") { NSWorkspace.shared.open(UpdateCheck.releasesURL) }
-                        .buttonStyle(.link).font(.caption)
+                        .buttonStyle(.plain).foregroundStyle(Palette.blue).font(.caption)
                         .help("brew upgrade --cask corgi-bar, or download from the release page")
                 }
                 Spacer()
@@ -632,20 +635,20 @@ struct RemoteView: View {
                         Text(w.workspaceId).font(.system(size: 11))
                         Spacer()
                         if let url = w.sessionUrl, let u = URL(string: url) {
-                            Button("Open") { NSWorkspace.shared.open(u) }.font(.system(size: 10)).buttonStyle(.link)
+                            Button("Open") { NSWorkspace.shared.open(u) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
                         }
                         Button(w.running ? "Stop" : "Start") {
                             Corgi.shared.runInBackground(["agent", "session", w.running ? "stop" : "start", w.workspaceId]) { _ in
                                 self.watcher.refreshStatus(force: true)
                             }
-                        }.font(.system(size: 10)).buttonStyle(.link)
+                        }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
                     }
                     .padding(.horizontal, 4)
                 }
                 if let url = watcher.status.dashboardUrl, let u = URL(string: url) {
                     Button { NSWorkspace.shared.open(u) } label: {
                         Label("Open dashboard", systemImage: "iphone").font(.system(size: 11))
-                    }.buttonStyle(.link).padding(.horizontal, 4)
+                    }.buttonStyle(.plain).foregroundStyle(Palette.blue).padding(.horizontal, 4)
                 }
             } label: {
                 let online = watcher.status.workspaces.filter { $0.running }.count
