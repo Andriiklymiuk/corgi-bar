@@ -30,7 +30,34 @@ its own and never starts the daemon. The same board on Stream Deck keys is
 [agent-deck](https://github.com/Andriiklymiuk/agent-deck); `SPEC.md` has the
 full rules.
 
-## Setup
+## Install
+
+```bash
+brew install --cask andriiklymiuk/tools/corgi-bar
+```
+
+That pulls corgi too. Then, once:
+
+```bash
+corgi agent install        # the daemon, at login
+corgi agent track enable   # the hooks that feed the board
+```
+
+Open corgi-bar from Applications. Grant **Accessibility** (Talk and typed
+prompts press keys) and **Notifications** when macOS asks. Launch at login
+is in Settings.
+
+The cask is kept current from the releases; `brew upgrade --cask corgi-bar`
+gets the next one, and the footer says "x.y.z available" when there is one.
+The app is not yet Developer-ID signed, so the cask drops the quarantine
+flag; a signed build lands as soon as the Apple secrets are set (see
+corgi's `docs/release-signing.md`).
+
+No Homebrew: download `corgi-bar.zip` from the
+[releases](https://github.com/Andriiklymiuk/corgi-bar/releases), unzip into
+Applications, then `xattr -dr com.apple.quarantine /Applications/corgi-bar.app`.
+
+## Setup details
 
 ```bash
 brew install andriiklymiuk/homebrew-tools/corgi
@@ -69,5 +96,6 @@ Release: bump `VERSION`, push `main`; CI builds the app, tags `v<VERSION>`
 and attaches the zip. With the Apple secrets set (corgi's
 `docs/release-signing.md`: `MACOS_SIGN_P12`, `MACOS_SIGN_PASSWORD`,
 `APPLE_TEAM_ID`, `MACOS_NOTARY_*`) the app is Developer-ID signed, notarized
-and stapled, so macOS keeps the Accessibility grant across updates. `Casks/corgi-bar.rb` is the Homebrew cask to copy
-into the `andriiklymiuk/homebrew-tools` tap once a release exists.
+and stapled, so macOS keeps the Accessibility grant across updates. The Homebrew cask lives in the `andriiklymiuk/homebrew-tools` tap and
+rewrites itself from the latest release every few hours (`Casks/corgi-bar.rb`
+here is the template it started from).

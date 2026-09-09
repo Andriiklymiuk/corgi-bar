@@ -223,3 +223,14 @@ final class BoardContractTests: XCTestCase {
         XCTAssertEqual(stats.tokensToday(today: today, calendar: cal).map(\.model), ["claude-opus-4-7", "claude-haiku-4-5"])
     }
 }
+
+
+final class UpdateCheckTests: XCTestCase {
+    func testVersionCompare() {
+        XCTAssertTrue(UpdateCheck.isNewer("0.6.0", than: "0.5.0"))
+        XCTAssertTrue(UpdateCheck.isNewer("0.10.0", than: "0.9.1"))
+        XCTAssertTrue(UpdateCheck.isNewer("1.0", than: "0.99.9"))
+        XCTAssertFalse(UpdateCheck.isNewer("0.5.0", than: "0.5.0"))
+        XCTAssertFalse(UpdateCheck.isNewer("0.4.9", than: "0.5"))
+    }
+}

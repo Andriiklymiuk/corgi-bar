@@ -187,6 +187,7 @@ struct BoardView: View {
     @ObservedObject var talk: Talk
     @ObservedObject private var promptFocus = PromptFocus.shared
     @ObservedObject private var settings = Preferences.shared
+    @ObservedObject private var updates = UpdateCheck.shared
     @State private var now = Date()
     @State private var prompt = ""
     @State private var carriedId: String?
@@ -246,6 +247,11 @@ struct BoardView: View {
             Divider()
             HStack {
                 Text(footer).font(.caption).foregroundStyle(.secondary)
+                if let v = updates.available {
+                    Button("\(v) available") { NSWorkspace.shared.open(UpdateCheck.releasesURL) }
+                        .buttonStyle(.link).font(.caption)
+                        .help("brew upgrade --cask corgi-bar, or download from the release page")
+                }
                 Spacer()
                 Button("Settings…") {
                     NSApp.activate(ignoringOtherApps: true)
@@ -260,6 +266,7 @@ struct BoardView: View {
         .onAppear {
             now = Date()
             watcher.refreshStatus()
+            updates.checkIfDue()
             if promptFocus.requested {
                 promptFocus.requested = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { promptFocused = true }
