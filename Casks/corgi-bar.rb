@@ -11,7 +11,7 @@ cask "corgi-bar" do
   desc "Claude Code sessions in the macOS menu bar, from corgi's session board"
   homepage "https://github.com/Andriiklymiuk/corgi-bar"
 
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "corgi-bar.app"
 
