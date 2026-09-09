@@ -12,6 +12,7 @@ jobs:
     env:
       MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -79,3 +80,11 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           body_path: RELEASE_NOTES.md
           files: corgi-bar.zip
+      # The Homebrew tap polls for releases every ten minutes. With a TAP_TOKEN
+      # (a fine-grained PAT: homebrew-tools, Actions read and write) the cask
+      # is rewritten right now instead.
+      - if: steps.version.outputs.new == 'true' && env.TAP_TOKEN != ''
+        name: Tell the tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: gh api repos/Andriiklymiuk/homebrew-tools/dispatches -f event_type=corgi-bar-release
