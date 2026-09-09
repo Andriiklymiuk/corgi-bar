@@ -265,6 +265,9 @@ struct BoardView: View {
         }
         .padding(10)
         .frame(width: 340)
+        // Opaque, not the menu bar's glass: status colours have to read on a
+        // known surface, not on whatever wallpaper is blurred behind them.
+        .background(Color(nsColor: .windowBackgroundColor))
         .onReceive(ticker) { now = $0 }
         .onAppear {
             now = Date()
