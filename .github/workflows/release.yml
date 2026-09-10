@@ -82,9 +82,12 @@ jobs:
           files: corgi-bar.zip
       # The Homebrew tap polls for releases every ten minutes. With a TAP_TOKEN
       # (a fine-grained PAT: homebrew-tools, Actions read and write) the cask
-      # is rewritten right now instead.
+      # is rewritten right now instead. Never fails the release: the poll is
+      # the backstop, so a missing or expired token costs ten minutes, not a
+      # red build.
       - if: steps.version.outputs.new == 'true' && env.TAP_TOKEN != ''
         name: Tell the tap
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.TAP_TOKEN }}
-        run: gh api repos/Andriiklymiuk/homebrew-tools/dispatches -f event_type=corgi-bar-release
+        run: gh workflow run update-corgi-bar.yml -R Andriiklymiuk/homebrew-tools
