@@ -201,6 +201,7 @@ struct BoardView: View {
             Divider()
             sessionsSection.padding(.vertical, 10)
             AccountsView(watcher: watcher)
+            WatchView(watcher: watcher)
             RemoteView(watcher: watcher)
             Divider()
             footerSection.padding(.vertical, 10)
@@ -794,4 +795,93 @@ struct LimitBar: View {
         f.dateFormat = Calendar.current.isDateInToday(at) ? "h:mma" : "EEE ha"
         return f.string(from: at).lowercased()
     }
+}
+
+/// What `corgi agent watch` is doing: which workspaces it watches, whether
+/// each only reports or works on what arrives, and what the unattended runs
+/// opened. A fix runs for minutes and its notification is gone in a second,
+/// so this is where you find out.
+struct WatchView: View {
+    @ObservedObject var watcher: BoardWatcher
+    @State private var now = Date()
+    private let ticker = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        let watch = watcher.watch
+        let live: [WatchStatus.Fix] = watch.running
+        let done: [WatchStatus.Fix] = watch.recent(now: now)
+        if watch.watched {
+            Divider()
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text("Watching").font(Palette.sectionTitle).foregroundStyle(.secondary)
+                    Spacer()
+                    Text(watch.summary(now: now)).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .padding(.horizontal, 4)
+
+                ForEach(watch.workspaces) { ws in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(ws.isAuto ? Palette.green : Color.secondary.opacity(0.5))
+                            .frame(width: 7, height: 7)
+                        Text(ws.workspace).font(.system(size: 11, weight: .medium)).lineLimit(1)
+                        Text(ws.isAuto ? "auto" : "notify")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(ws.isAuto ? Palette.green : .secondary)
+                        if let quiet = ws.quiet, !quiet.isEmpty {
+                            Text("quiet \(quiet)").font(.system(size: 9)).foregroundStyle(.tertiary).lineLimit(1)
+                        }
+                        Spacer()
+                        Button(ws.isAuto ? "Stop" : "Auto") {
+                            watcher.setAuto(!ws.isAuto, workspace: ws.workspace)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(ws.isAuto ? Palette.red : Palette.blue)
+                        .help(ws.isAuto
+                              ? "Stop working on what arrives; keep reporting it"
+                              : "Work on what arrives: draft PRs only, capped, never twice on the same thing")
+                    }
+                    .padding(.horizontal, 4)
+                }
+
+                ForEach(live) { fix in
+                    HStack(spacing: 6) {
+                        Circle().fill(Palette.amber).frame(width: 7, height: 7)
+                        Text(fix.ref).font(.system(size: 11)).lineLimit(1)
+                        Spacer()
+                        Text(elapsedSince(fix.startedAt, now: now)).font(.system(size: 10)).foregroundStyle(Palette.amber)
+                    }
+                    .padding(.horizontal, 4)
+                }
+
+                ForEach(done) { fix in
+                    HStack(spacing: 6) {
+                        Text(fix.ref).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                        Text(fix.outcome).font(.system(size: 10)).foregroundStyle(fix.error == nil ? Color.secondary : Palette.red).lineLimit(1)
+                        Spacer()
+                        if let pr = fix.pullRequest {
+                            Button("Open") { NSWorkspace.shared.open(pr) }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Palette.blue)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
+            .padding(.vertical, 8)
+            .onReceive(ticker) { now = $0 }
+        }
+    }
+}
+
+/// "6m" / "1h 20m" since a fix started; empty when there is no start time.
+func elapsedSince(_ start: Date?, now: Date) -> String {
+    guard let start else { return "" }
+    let minutes = max(0, Int(now.timeIntervalSince(start) / 60))
+    if minutes < 60 { return "\(minutes)m" }
+    let rest = minutes % 60
+    return rest == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(rest)m"
 }

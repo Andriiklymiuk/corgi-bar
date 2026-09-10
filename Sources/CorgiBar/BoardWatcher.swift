@@ -10,6 +10,7 @@ final class BoardWatcher: ObservableObject {
     @Published private(set) var corgiVersion: String?
     @Published private(set) var corgiPresent = true
     @Published private(set) var status: AgentStatus = .empty
+    @Published private(set) var watch: WatchStatus = .empty
 
     private var path: String?
     private var source: DispatchSourceFileSystemObject?
@@ -20,6 +21,7 @@ final class BoardWatcher: ObservableObject {
     func start() {
         refreshFromCLI()
         refreshStatus()
+        refreshWatch()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
@@ -42,6 +44,38 @@ final class BoardWatcher: ObservableObject {
             }
             guard r.ok, let data = r.stdout.data(using: .utf8), let status = try? decoder.decode(AgentStatus.self, from: data) else { return }
             DispatchQueue.main.async { self.status = status }
+        }
+    }
+
+    /// `corgi agent watch --json` is cheap — it reads two files — so it can
+    /// follow the 5 s tick and show a running fix while it is still running.
+    func refreshWatch() {
+        DispatchQueue.global(qos: .utility).async {
+            let r = Corgi.shared.run(["agent", "watch", "--json"])
+            guard r.ok, let data = r.stdout.data(using: .utf8),
+                  let watch = try? WatchStatus.decode(data) else { return }
+            DispatchQueue.main.async { self.watch = watch }
+        }
+    }
+
+    /// Turn the unattended mode on or off for one workspace, then re-read.
+    /// The daemon has to be restarted for it to take, which corgi says too.
+    func setAuto(_ on: Bool, workspace id: String) {
+        var args = ["agent", "watch", "enable", "--workspace", id]
+        args += on ? ["--auto"] : ["--action", "notify"]
+        Corgi.shared.runInBackground(args) { [weak self] _ in
+            // The daemon reads the rules at start, so a change needs a restart.
+            Corgi.shared.runInBackground(["agent", "restart"]) { _ in
+                DispatchQueue.main.async { self?.refreshWatch() }
+            }
+        }
+    }
+
+    func stopWatching(workspace id: String) {
+        Corgi.shared.runInBackground(["agent", "watch", "disable", "--workspace", id]) { [weak self] _ in
+            Corgi.shared.runInBackground(["agent", "restart"]) { _ in
+                DispatchQueue.main.async { self?.refreshWatch() }
+            }
         }
     }
 
@@ -80,6 +114,7 @@ final class BoardWatcher: ObservableObject {
         }
         readFile(path)
         refreshStatus()
+        refreshWatch()
     }
 
     private func watch(_ path: String) {

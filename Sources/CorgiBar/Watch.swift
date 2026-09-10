@@ -1,0 +1,127 @@
+import Foundation
+
+/// `corgi agent watch --json`: which workspaces are watched, whether each
+/// only reports or actually works on what arrives, and what the unattended
+/// runs opened. A fix takes minutes and its notification is gone in a
+/// second, so the menu is where you find out what happened.
+struct WatchStatus: Decodable {
+    struct Budget: Decodable {
+        var perHour: Int?
+        var perDay: Int?
+        var startedThisHour: Int?
+        var startedToday: Int?
+    }
+
+
+    struct Workspace: Decodable, Identifiable {
+        var workspace: String
+        var sources: [String] = []
+        var action: String = "notify"
+        var interval: String?
+        var quiet: String?
+        var fixes: Budget?
+        var id: String { workspace }
+
+        // corgi omits empty fields, so every optional one is decoded as such:
+        // a synthesized decoder would fail the whole payload over a missing key.
+        enum CodingKeys: String, CodingKey { case workspace, sources, action, interval, quiet, fixes }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            workspace = try c.decode(String.self, forKey: .workspace)
+            sources = try c.decodeIfPresent([String].self, forKey: .sources) ?? []
+            action = try c.decodeIfPresent(String.self, forKey: .action) ?? "notify"
+            interval = try c.decodeIfPresent(String.self, forKey: .interval)
+            quiet = try c.decodeIfPresent(String.self, forKey: .quiet)
+            fixes = try c.decodeIfPresent(Budget.self, forKey: .fixes)
+        }
+
+        /// Unattended: it works on what arrives instead of only reporting it.
+        var isAuto: Bool { action == "fix" }
+    }
+
+    struct Fix: Decodable, Identifiable {
+        var ref: String
+        var workspace: String
+        var kind: String?
+        var startedAt: Date?
+        var running: Bool = false
+        var prs: [String] = []
+        var note: String?
+        var error: String?
+        var id: String { workspace + "/" + ref + (startedAt.map { String($0.timeIntervalSince1970) } ?? "") }
+
+        enum CodingKeys: String, CodingKey { case ref, workspace, kind, startedAt, running, prs, note, error }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            ref = try c.decodeIfPresent(String.self, forKey: .ref) ?? ""
+            workspace = try c.decodeIfPresent(String.self, forKey: .workspace) ?? ""
+            kind = try c.decodeIfPresent(String.self, forKey: .kind)
+            startedAt = try c.decodeIfPresent(Date.self, forKey: .startedAt)
+            running = try c.decodeIfPresent(Bool.self, forKey: .running) ?? false
+            prs = try c.decodeIfPresent([String].self, forKey: .prs) ?? []
+            note = try c.decodeIfPresent(String.self, forKey: .note)
+            error = try c.decodeIfPresent(String.self, forKey: .error)
+        }
+
+        /// The first pull request it opened, if it opened one.
+        var pullRequest: URL? {
+            guard let first = prs.first(where: { $0.hasPrefix("https://") }) else { return nil }
+            return URL(string: first)
+        }
+
+        var outcome: String {
+            if running { return "running" }
+            if let error, !error.isEmpty { return error }
+            if !prs.isEmpty { return prs.count == 1 ? "opened 1 PR" : "opened \(prs.count) PRs" }
+            if let note, !note.isEmpty { return note }
+            return "nothing opened"
+        }
+    }
+
+    var workspaces: [Workspace] = []
+    var fixes: [Fix] = []
+
+    static let empty = WatchStatus()
+    init() {}
+
+    enum CodingKeys: String, CodingKey { case workspaces, fixes }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workspaces = try c.decodeIfPresent([Workspace].self, forKey: .workspaces) ?? []
+        fixes = try c.decodeIfPresent([Fix].self, forKey: .fixes) ?? []
+    }
+
+    var watched: Bool { !workspaces.isEmpty }
+    var running: [Fix] { fixes.filter(\.running) }
+
+    /// What to show when nothing is running: the finished runs worth seeing.
+    func recent(now: Date, within: TimeInterval = 12 * 3600, limit: Int = 5) -> [Fix] {
+        fixes.filter { !$0.running && now.timeIntervalSince($0.startedAt ?? .distantPast) <= within }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// One line for the menu section header.
+    func summary(now: Date) -> String {
+        let live = running.count
+        if live == 1 { return "working on \(running[0].ref)" }
+        if live > 1 { return "\(live) fixes running" }
+        let opened = recent(now: now).filter { !$0.prs.isEmpty }.count
+        if opened > 0 { return "\(opened) pull request\(opened == 1 ? "" : "s") opened" }
+        let autos = workspaces.filter(\.isAuto).count
+        if autos > 0 { return autos == 1 ? "unattended, nothing yet" : "\(autos) unattended, nothing yet" }
+        return "reporting only"
+    }
+
+    static func decode(_ data: Data) throws -> WatchStatus {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .custom { decoder in
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            guard let date = Board.parseDate(raw) else {
+                throw DecodingError.dataCorruptedError(in: try decoder.singleValueContainer(), debugDescription: raw)
+            }
+            return date
+        }
+        return try d.decode(WatchStatus.self, from: data)
+    }
+}

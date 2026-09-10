@@ -114,3 +114,14 @@ make showcase   # redraw docs/media with Chrome
 Release: bump `VERSION`, push `main`. CI builds, signs, notarizes, tags
 `v<VERSION>` and attaches the zip. The Homebrew cask in
 `andriiklymiuk/homebrew-tools` updates itself from the latest release.
+
+## Watching
+
+When `corgi agent watch` is on, the menu gains a **Watching** section: one row
+per workspace, whether it only reports (`notify`) or works on what arrives
+(`auto`), and its quiet window. **Auto** / **Stop** flips that from the menu
+and restarts the daemon for you.
+
+An unattended fix runs for minutes and its notification is gone in a second,
+so the section also shows what is running, and what the finished runs opened —
+**Open** goes straight to the pull request.
