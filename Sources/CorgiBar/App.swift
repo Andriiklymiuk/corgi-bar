@@ -200,8 +200,10 @@ struct BoardView: View {
             promptSection.padding(.vertical, 10)
             Divider()
             sessionsSection.padding(.vertical, 10)
-            AccountsView(watcher: watcher)
+            // What is waiting on you comes before what you have spent: the
+            // menu is opened to find work, not to read a budget.
             WatchView(watcher: watcher)
+            AccountsView(watcher: watcher)
             RemoteView(watcher: watcher)
             Divider()
             footerSection.padding(.vertical, 10)
