@@ -94,7 +94,7 @@ struct AgentStatus: Decodable {
         return byProfile.values.sorted { $0.profile == "default" ? true : $1.profile == "default" ? false : $0.profile < $1.profile }
     }
 
-    /// The badge corgi gives a config dir: ~/.claude-work → work, ~/.claude-skp → skp.
+    /// The badge corgi gives a config dir: ~/.claude-work → work, ~/.claude-client → client.
     static func profileName(configDir: String?) -> String {
         guard let dir = configDir, !dir.isEmpty else { return "default" }
         let base = (dir as NSString).lastPathComponent

@@ -846,6 +846,44 @@ struct WatchView: View {
                     .padding(.horizontal, 4)
                 }
 
+                // The inbox: what arrived and is still waiting on a person.
+                // The phone has had this since the tabs; the menu bar is
+                // where the day is actually spent.
+                if !watch.events.isEmpty {
+                    Divider().padding(.vertical, 2)
+                    ForEach(watch.events.prefix(5)) { item in
+                        HStack(spacing: 6) {
+                            Circle().fill(Palette.blue.opacity(0.7)).frame(width: 7, height: 7)
+                            VStack(alignment: .leading, spacing: 1) {
+                                HStack(spacing: 5) {
+                                    Text(item.ref.isEmpty ? item.key : item.ref)
+                                        .font(.system(size: 11, weight: .medium)).lineLimit(1)
+                                    Text(item.kindLabel)
+                                        .font(.system(size: 9)).foregroundStyle(.secondary)
+                                    if let state = item.state, !state.isEmpty {
+                                        Text(state).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                                    }
+                                }
+                                if !item.title.isEmpty {
+                                    Text(item.title).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                            if let link = item.link {
+                                Button("Open") { NSWorkspace.shared.open(link) }
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(Palette.blue)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    if watch.events.count > 5 {
+                        Text("and \(watch.events.count - 5) more")
+                            .font(.system(size: 9)).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    }
+                }
+
                 ForEach(live) { fix in
                     HStack(spacing: 6) {
                         Circle().fill(Palette.amber).frame(width: 7, height: 7)

@@ -289,7 +289,7 @@ struct Session: Decodable, Identifiable {
 
     var isStuck: Bool { stuck == true && status == .working }
 
-    /// The two-letter chip for another account: ~/.claude-work → WK, skp → SP.
+    /// The two-letter chip for another account: ~/.claude-work → WK, client → CL.
     var profileChip: String? {
         guard let p = profile, p != "default", !p.isEmpty else { return nil }
         return String(p.prefix(2)).uppercased()

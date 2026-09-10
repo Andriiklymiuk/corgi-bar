@@ -78,17 +78,61 @@ struct WatchStatus: Decodable {
         }
     }
 
+    /// One thing the watch saw that is still waiting on a person.
+    struct Item: Decodable, Identifiable {
+        var key: String
+        var ref: String = ""
+        var kind: String = ""
+        var workspace: String = ""
+        var title: String = ""
+        var url: String?
+        var state: String?
+        var at: Date?
+        var id: String { key }
+
+        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            key = try c.decodeIfPresent(String.self, forKey: .key) ?? ""
+            ref = try c.decodeIfPresent(String.self, forKey: .ref) ?? ""
+            kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? ""
+            workspace = try c.decodeIfPresent(String.self, forKey: .workspace) ?? ""
+            title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+            url = try c.decodeIfPresent(String.self, forKey: .url)
+            state = try c.decodeIfPresent(String.self, forKey: .state)
+            at = try c.decodeIfPresent(Date.self, forKey: .at)
+        }
+
+        /// What kind of thing it is, in the words the menu has room for.
+        var kindLabel: String {
+            switch kind {
+            case "issue.new": return "issue"
+            case "issue.comment": return "comment"
+            case "pr.comment": return "PR comment"
+            case "pr.review": return "PR review"
+            default: return kind
+            }
+        }
+
+        var link: URL? {
+            guard let url, url.hasPrefix("https://") else { return nil }
+            return URL(string: url)
+        }
+    }
+
     var workspaces: [Workspace] = []
     var fixes: [Fix] = []
+    var events: [Item] = []
 
     static let empty = WatchStatus()
     init() {}
 
-    enum CodingKeys: String, CodingKey { case workspaces, fixes }
+    enum CodingKeys: String, CodingKey { case workspaces, fixes, events }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         workspaces = try c.decodeIfPresent([Workspace].self, forKey: .workspaces) ?? []
         fixes = try c.decodeIfPresent([Fix].self, forKey: .fixes) ?? []
+        events = try c.decodeIfPresent([Item].self, forKey: .events) ?? []
     }
 
     var watched: Bool { !workspaces.isEmpty }
@@ -103,6 +147,9 @@ struct WatchStatus: Decodable {
 
     /// One line for the menu section header.
     func summary(now: Date) -> String {
+        if !events.isEmpty && running.isEmpty {
+            return events.count == 1 ? "1 thing waiting" : "\(events.count) things waiting"
+        }
         let live = running.count
         if live == 1 { return "working on \(running[0].ref)" }
         if live > 1 { return "\(live) fixes running" }

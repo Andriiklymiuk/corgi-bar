@@ -81,3 +81,40 @@ final class WatchTests: XCTestCase {
         XCTAssertEqual(elapsedSince(nil, now: now), "")
     }
 }
+
+extension WatchTests {
+    /// The inbox rides along with the watch status now, so the menu can show
+    /// what is waiting without asking the phone.
+    func testInboxItemsDecodeAndDescribeThemselves() throws {
+        let json = """
+        {"workspaces":[{"workspace":"api","action":"notify"}],
+         "events":[
+           {"key":"jira:ABC-1","ref":"ABC-1","kind":"issue.new","workspace":"api",
+            "title":"Login loops","url":"https://x/browse/ABC-1","state":"READY TO DEV",
+            "at":"2026-09-10T12:00:00Z"},
+           {"key":"gl:acme/api!7","ref":"acme/api!7","kind":"pr.review","workspace":"api"}
+         ]}
+        """
+        let watch = try WatchStatus.decode(Data(json.utf8))
+        XCTAssertEqual(watch.events.count, 2)
+
+        let first = watch.events[0]
+        XCTAssertEqual(first.kindLabel, "issue")
+        XCTAssertEqual(first.state, "READY TO DEV")
+        XCTAssertEqual(first.link?.absoluteString, "https://x/browse/ABC-1")
+
+        // A row with none of the optional fields must not fail the payload.
+        let second = watch.events[1]
+        XCTAssertEqual(second.kindLabel, "PR review")
+        XCTAssertNil(second.link)
+        XCTAssertEqual(second.title, "")
+
+        XCTAssertEqual(watch.summary(now: Date()), "2 things waiting")
+    }
+
+    func testAnInboxLinkMustBeHttps() throws {
+        let json = #"{"events":[{"key":"k","url":"javascript:alert(1)"}]}"#
+        let watch = try WatchStatus.decode(Data(json.utf8))
+        XCTAssertNil(watch.events[0].link, "only https is worth opening")
+    }
+}

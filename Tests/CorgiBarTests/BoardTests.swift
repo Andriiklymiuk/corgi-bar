@@ -51,7 +51,7 @@ final class BoardTests: XCTestCase {
     }
 
     func testAccountsGroupUsageByConfigDirAndCarryTheLimit() throws {
-        let json = #"{"running":true,"version":"1.21.41","workspaces":[{"workspaceId":"corgi","running":true}],"usage":[{"workspaceId":"corgi","configDir":"","tokensToday":10,"tokensWeek":100},{"workspaceId":"idid","configDir":"","tokensToday":5,"tokensWeek":50},{"workspaceId":"onboarding","configDir":"/Users/me/.claude-skp","tokensToday":7,"tokensWeek":70}],"accounts":[{"profile":"default","limits":{"fetchedAt":"2026-09-08T13:35:22.38+03:00","fiveHour":{"percent":55,"resetsAt":"2026-09-08T14:10:00.244Z"},"sevenDay":{"percent":10,"resetsAt":"2026-09-15T06:00:00.244018Z"}}},{"profile":"skp","configDir":"/Users/me/.claude-skp"}],"dashboardUrl":"https://x.example"}"#
+        let json = #"{"running":true,"version":"1.21.41","workspaces":[{"workspaceId":"corgi","running":true}],"usage":[{"workspaceId":"corgi","configDir":"","tokensToday":10,"tokensWeek":100},{"workspaceId":"idid","configDir":"","tokensToday":5,"tokensWeek":50},{"workspaceId":"api","configDir":"/Users/me/.claude-client","tokensToday":7,"tokensWeek":70}],"accounts":[{"profile":"default","limits":{"fetchedAt":"2026-09-08T13:35:22.38+03:00","fiveHour":{"percent":55,"resetsAt":"2026-09-08T14:10:00.244Z"},"sevenDay":{"percent":10,"resetsAt":"2026-09-15T06:00:00.244018Z"}}},{"profile":"client","configDir":"/Users/me/.claude-client"}],"dashboardUrl":"https://x.example"}"#
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { d in
             let raw = try d.singleValueContainer().decode(String.self)
@@ -61,13 +61,13 @@ final class BoardTests: XCTestCase {
         var board = try fixture()
         board.accounts = [] // status-only grouping; the board's accounts are covered below
         board.sessions[2].status = .limited
-        board.sessions[2].profile = "skp"
+        board.sessions[2].profile = "client"
         board.sessions[2].detail = "resets 1:10pm"
         let accounts = status.accounts(board: board)
-        XCTAssertEqual(accounts.map(\.profile), ["default", "skp"])
+        XCTAssertEqual(accounts.map(\.profile), ["default", "client"])
         XCTAssertEqual(accounts[0].tokensToday, 15)
         XCTAssertEqual(accounts[0].chip, "")
-        XCTAssertEqual(accounts[1].chip, "SK")
+        XCTAssertEqual(accounts[1].chip, "CL")
         XCTAssertEqual(accounts[1].limitedUntil, "resets 1:10pm")
         XCTAssertEqual(accounts[0].limits?.fiveHour.percent, 55)
         XCTAssertEqual(accounts[0].limits?.sevenDay.percent, 10)
