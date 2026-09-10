@@ -5,6 +5,19 @@
 // keep the two in step when the layout changes. scripts/capture.sh runs it.
 import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 
+
+// The mockups say the versions this checkout actually is, so a screenshot
+// never advertises a release that has been and gone.
+const BAR_VERSION = readFileSync(new URL("../VERSION", import.meta.url), "utf8").trim();
+const CLI_VERSION = (() => {
+  try {
+    const root = readFileSync(new URL("../../cmd/root.go", import.meta.url), "utf8");
+    return root.match(/APP_VERSION = "([^"]+)"/)?.[1] ?? "1.21";
+  } catch {
+    return "1.21";
+  }
+})();
+
 // macOS dark system colours: what Palette in App.swift resolves to.
 const amber = "#FF9F0A", red = "#FF453A", green = "#30D158", blue = "#0A84FF";
 const label = "#F2F2F7", secondary = "rgba(235,235,245,.62)", tertiary = "rgba(235,235,245,.32)";
@@ -76,8 +89,8 @@ const remote = `
 // The footer: version, the mic (red while it records), Settings, Quit.
 const footer = ({ talk, update }) => `
   <hr>
-  ${update ? `<div class="upd"><a>corgi-bar 0.6.5 available</a></div>` : ""}
-  <div class="foot"><span>corgi 1.21.58 · daemon running</span><span class="sp"></span><span class="btn${talk === "rec" ? " rec" : ""}">${mic(talk === "rec" ? red : label)}</span><span class="btn">Settings</span><span class="btn">Quit</span></div>`;
+  ${update ? `<div class="upd"><a>corgi-bar ${BAR_VERSION} available</a></div>` : ""}
+  <div class="foot"><span>corgi ${CLI_VERSION} · daemon running</span><span class="sp"></span><span class="btn${talk === "rec" ? " rec" : ""}">${mic(talk === "rec" ? red : label)}</span><span class="btn">Settings</span><span class="btn">Quit</span></div>`;
 
 const popover = ({ groups, prompt = "", placeholder = "Prompt for corgi", talk = "idle", limited = true, workPct = 100, update = true, part = "all" }) => part === "accounts" ? `<div class="popover">${accounts({ workLimited: limited, workPct }).replace("<hr>", "")}</div>` : part === "talk" ? `
 <div class="popover">
