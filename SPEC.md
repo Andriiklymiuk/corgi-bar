@@ -123,10 +123,9 @@ Top to bottom:
    runs out 14:32 (before the 16:10 reset)" in red when
    `forecast.fiveHour.safe` is false, "12.5%/h · lasts until the reset"
    otherwise, "pace flat" when `exhaustAt` is absent.
-4. **Talk** button and its global hotkey (section 4).
-5. Footer: `corgi 1.21.46 · daemon running` (or "daemon off — `corgi agent
-   install`", or "corgi not found — brew install …"), a **Settings…** item,
-   **Quit**.
+4. Footer: `corgi 1.21.46 · daemon running` (or "daemon off — `corgi agent
+   install`", or "corgi not found — brew install …"), then the **Talk** mic
+   button (section 4; red while it records), **Settings**, **Quit**.
 
 The dropdown never blocks: every corgi call runs off the main thread, and
 the board redraw comes from the file, not from the command's exit.

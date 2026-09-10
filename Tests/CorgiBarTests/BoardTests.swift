@@ -225,6 +225,26 @@ final class BoardContractTests: XCTestCase {
 }
 
 
+final class PopoverTests: XCTestCase {
+    func testHotKeySymbols() {
+        XCTAssertEqual(HotKey.symbols("ctrl+alt+p"), "⌃⌥P")
+        XCTAssertEqual(HotKey.symbols("cmd+shift+t"), "⌘⇧T")
+        XCTAssertEqual(HotKey.symbols("f13"), "F13")
+        XCTAssertEqual(HotKey.symbols("off"), "")
+    }
+
+    func testContextBarTurnsRedAtEightyFive() {
+        XCTAssertEqual(Palette.context(84), Palette.context(1))
+        XCTAssertEqual(Palette.context(85), Palette.red)
+        XCTAssertEqual(Palette.context(100), Palette.red)
+    }
+
+    func testRemoteSummary() {
+        XCTAssertEqual(remoteSummary(live: 1, devices: 2, total: 3), "Remote · 1 session · 2 devices")
+        XCTAssertEqual(remoteSummary(live: 0, devices: 0, total: 4), "Remote · 4 off")
+    }
+}
+
 final class UpdateCheckTests: XCTestCase {
     func testVersionCompare() {
         XCTAssertTrue(UpdateCheck.isNewer("0.6.0", than: "0.5.0"))

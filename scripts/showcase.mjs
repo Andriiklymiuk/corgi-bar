@@ -10,14 +10,15 @@ const amber = "#FF9F0A", red = "#FF453A", green = "#30D158", blue = "#0A84FF";
 const label = "#F2F2F7", secondary = "rgba(235,235,245,.62)", tertiary = "rgba(235,235,245,.32)";
 const ground = "#141416", window = "#2A2A2D";
 
-const ctxColor = (p) => (p > 85 ? red : p > 60 ? amber : "rgba(235,235,245,.28)");
+const ctxColor = (p) => (p >= 85 ? red : "rgba(235,235,245,.2)");
 
 // The menu bar item is the SF Symbol "dog", rendered by scripts/dog-symbol.swift.
 const dogPng = Object.fromEntries(["quiet", "working", "needs", "done", "limited"].map((m) => [m, readFileSync(`docs/media/dog/${m}.png`).toString("base64")]));
 const moodOf = { "#e8e8ea": "quiet", [amber]: "working", [red]: "needs", [green]: "done", [blue]: "limited" };
 const dog = (color, size = 16) => `<img width="${size}" height="${size}" style="vertical-align:middle" src="data:image/png;base64,${dogPng[moodOf[color] ?? "quiet"]}">`;
-const mic = (color) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>`;
-const rec = `<svg width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="${red}" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="${red}"/></svg>`;
+// SF Symbol mic.fill, near enough: a filled capsule over the stand.
+const mic = (color) => `<svg width="11" height="12" viewBox="0 0 24 26" fill="${color}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="1" width="8" height="14" rx="4" stroke="none"/><path d="M4 11a8 8 0 0 0 16 0M12 19v5M8 24h8" fill="none"/></svg>`;
+const phone = `<svg width="9" height="12" viewBox="0 0 14 22" fill="none" stroke="${blue}" stroke-width="1.6"><rect x="1" y="1" width="12" height="20" rx="2.5"/><path d="M5 18h4"/></svg>`;
 
 const chip = (t) => `<span class="chip">${t}</span>`;
 
@@ -52,6 +53,7 @@ const bar = (lbl, pct, color, at) => `<span class="lbl">${lbl}</span><span class
 
 const accounts = ({ workLimited = true, workPct = 100 } = {}) => `
   <hr>
+  <div class="title">Accounts</div>
   <div class="acct"><span class="path">~/.claude</span><span class="live">3 live</span><span class="use">178.0M today · 1.6B week</span></div>
   <div class="bars">${bar("5h", 55, green, "5:10pm")}${bar("week", 10, green, "mon 9am")}</div>
   <div class="fc">${spark(20, 55, secondary)}12.5%/h · lasts until the reset</div>
@@ -59,48 +61,61 @@ const accounts = ({ workLimited = true, workPct = 100 } = {}) => `
   <div class="bars">${bar("5h", workPct, workPct > 85 ? red : workPct > 60 ? amber : green, "1:10pm")}${bar("week", 64, amber, "thu 6am")}</div>
   <div class="fc" style="color:${workPct > 85 ? red : secondary}">${spark(40, workPct, workPct > 85 ? red : secondary, -6)}${workPct > 85 ? "62%/h · runs out 12:41 (before the 1:10pm reset)" : "31%/h · lasts until the reset"}</div>`;
 
+// The hint shows only while the field has focus; a typed prompt means focus.
+const promptBox = (prompt, placeholder) => `
+  <div class="prompt"><span class="field${prompt ? " typed" : ""}">${prompt || placeholder}${prompt ? `<i class="caret"></i>` : ""}</span><span class="plus">+</span></div>
+  ${prompt ? `<div class="hint">⏎ send · ⌥⏎ newline · ⌃⌥P</div>` : ""}`;
+
+const remoteRow = (r) => `<div class="rrow"><span class="dot" style="background:${r.live ? green : secondary}"></span><span>${r.name}</span><span class="tag">${r.live ? "session" : "device"}</span><span class="sp"></span>${r.hover ? `<span class="quiet">${r.live ? "Stop" : ""}</span><span class="quiet">Pause</span>` : ""}<a>Open</a></div>`;
+const remote = `
+  <hr>
+  <div class="title">▾ Remote · 1 session · 2 devices</div>
+  ${[{ name: "corgi", live: true }, { name: "acme-api", hover: true }, { name: "web" }].map(remoteRow).join("")}
+  <div class="rrow dash">${phone}<a>Open dashboard</a></div>`;
+
+// The footer: version, the mic (red while it records), Settings, Quit.
+const footer = ({ talk, update }) => `
+  <hr>
+  ${update ? `<div class="upd"><a>corgi-bar 0.6.5 available</a></div>` : ""}
+  <div class="foot"><span>corgi 1.21.58 · daemon running</span><span class="sp"></span><span class="btn${talk === "rec" ? " rec" : ""}">${mic(talk === "rec" ? red : label)}</span><span class="btn">Settings</span><span class="btn">Quit</span></div>`;
+
 const popover = ({ groups, prompt = "", placeholder = "Prompt for corgi", talk = "idle", limited = true, workPct = 100, update = true, part = "all" }) => part === "accounts" ? `<div class="popover">${accounts({ workLimited: limited, workPct }).replace("<hr>", "")}</div>` : part === "talk" ? `
 <div class="popover">
-  <div class="prompt"><span class="field${prompt ? " typed" : ""}">${prompt || placeholder}${prompt ? `<i class="caret"></i>` : ""}</span><span class="plus">+</span></div>
-  <div class="hint">Return sends · ⌥Return types without Enter · ctrl+alt+p</div>
+  ${promptBox(prompt, placeholder)}
   <hr>
   ${group(groups[0])}
-  <hr>
-  <div class="talk${talk === "rec" ? " rec" : ""}">${talk === "rec" ? rec : mic(label)} ${talk === "rec" ? "REC · press to send" : "Talk"} <span class="hot">ctrl+alt+space</span></div>
+  ${footer({ talk, update: false })}
 </div>` : `
 <div class="popover">
-  <div class="prompt"><span class="field${prompt ? " typed" : ""}">${prompt || placeholder}${prompt ? `<i class="caret"></i>` : ""}</span><span class="plus">+</span></div>
-  <div class="hint">Return sends · ⌥Return types without Enter · ctrl+alt+p</div>
+  ${promptBox(prompt, placeholder)}
   <hr>
   ${groups.map(group).join("")}
   ${accounts({ workLimited: limited, workPct })}
-  <hr>
-  <div class="remote">▸ Remote · 5 of 5 online</div>
-  <hr>
-  <div class="talk${talk === "rec" ? " rec" : ""}">${talk === "rec" ? rec : mic(label)} ${talk === "rec" ? "REC · press to send" : "Talk"} <span class="hot">ctrl+alt+space</span></div>
-  <hr>
-  <div class="foot"><span>corgi 1.21.51 · daemon on</span>${update ? `<a>0.6.4 available</a>` : ""}<span class="sp"></span><span>Settings…</span><span>Quit</span></div>
+  ${remote}
+  ${footer({ talk, update })}
 </div>`;
 
 const css = `
   *{box-sizing:border-box}
   html,body{margin:0;font-family:-apple-system,"SF Pro Text",Inter,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:${label}}
   .popover{width:340px;background:${window};border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.55),0 0 0 .5px rgba(0,0,0,.6);padding:10px;font-size:13px}
-  .popover hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:6px 0}
+  .popover hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:10px 0}
   .prompt{display:flex;align-items:center;gap:6px}
   .field{flex:1;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:${tertiary};font-size:12px;line-height:16px}
   .field.typed{color:${label};border-color:${blue};box-shadow:0 0 0 3px rgba(10,132,255,.3)}
   .caret{display:inline-block;width:1px;height:12px;background:${label};vertical-align:-2px;margin-left:1px}
   .plus{font-weight:600;padding:2px 9px;border-radius:6px;background:rgba(255,255,255,.1);font-size:14px;line-height:18px}
-  .hint{font-size:9px;color:${tertiary};margin:3px 0 0 2px}
-  .group{display:flex;align-items:center;gap:6px;padding:6px 4px 0;font-size:11px;font-weight:700;color:${secondary}}
+  .hint{font-size:11px;color:${tertiary};margin:4px 0 0 2px}
+  .title{font-size:11px;font-weight:600;color:${secondary};padding:0 4px 4px}
+  .group{display:flex;align-items:center;gap:6px;padding:0 4px 2px;font-size:11px;font-weight:600;color:${secondary}}
+  .group+.group,.row+.group{margin-top:8px}
   .group b{margin-left:auto;font-size:10px;font-weight:400;color:${tertiary}}
   .row{position:relative;padding:3px 0 3px 6px;border-radius:5px}
   .row.front::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:2px;border-radius:1px;background:${blue}}
   .row.hover{background:rgba(255,255,255,.08)}
   .row.gone{opacity:.4}
   .line{display:flex;align-items:center;gap:8px;padding:1px 4px}
-  .ctx{height:2px;margin:2px 4px 0;background:rgba(255,255,255,.08)}.ctx i{display:block;height:100%}
+  .ctx{height:2px;margin:2px 4px 0;background:rgba(255,255,255,.06)}.ctx i{display:block;height:100%}
   .answer{display:flex;gap:4px;font-size:10px;padding-right:4px}
   .answer span{padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.1)}
   .answer .ok{color:${green};border-color:rgba(48,209,88,.4)}
@@ -120,9 +135,12 @@ const css = `
   .bars .lbl{width:24px;font-weight:600;color:${secondary}}.bars .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}.bars .bar i{display:block;height:100%;border-radius:2px}
   .bars .pct{width:30px;text-align:right;font-weight:600}.bars .at{color:${tertiary};width:44px}
   .fc{display:flex;align-items:center;gap:6px;font-size:9px;color:${secondary};padding:0 4px 4px}
-  .remote{font-size:11px;font-weight:600;padding:2px 4px}
-  .talk{display:flex;align-items:center;gap:6px;padding:4px}.talk.rec{color:${red}}.hot{margin-left:auto;font-size:11px;color:${secondary}}
-  .foot{display:flex;gap:10px;font-size:11px;color:${secondary};padding:2px 4px;white-space:nowrap}.foot a{color:${blue}}.foot .sp{flex:1}
+  .rrow{display:flex;align-items:center;gap:6px;padding:2px 4px;font-size:11px}.rrow .dot{width:6px;height:6px}.rrow .tag{font-size:9px;color:${tertiary}}
+  .rrow .sp{flex:1}.rrow a{font-size:10px;color:${blue}}.rrow .quiet{font-size:10px;color:${secondary}}.rrow.dash{padding-top:4px}.rrow.dash a{font-size:11px}
+  .upd{font-size:11px;padding:0 4px 6px}.upd a{color:${blue}}
+  .foot{display:flex;align-items:center;gap:6px;font-size:11px;color:${secondary};padding:0 4px;white-space:nowrap}.foot .sp{flex:1}
+  .btn{display:inline-flex;align-items:center;justify-content:center;height:19px;padding:0 8px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.08);color:${label};font-size:11px;box-shadow:0 1px 1px rgba(0,0,0,.25)}
+  .btn.rec{background:rgba(255,69,58,.18);border-color:rgba(255,69,58,.4)}
   .banner{width:360px;background:rgba(40,40,46,.92);backdrop-filter:blur(30px);border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:12px 14px;display:flex;gap:12px;align-items:center}
   .banner .ico{width:38px;height:38px;border-radius:9px;background:#10142A;display:flex;align-items:center;justify-content:center;flex:none}
   .banner b{display:block;font-size:13px}.banner span{font-size:12px;color:${secondary}}.banner small{margin-left:auto;font-size:11px;color:${tertiary};align-self:flex-start}
@@ -167,9 +185,9 @@ const desktop = ({ t = 1, open = true, banner = false, needs = needsAt(t), mood 
     radial-gradient(900px 700px at 80% 70%,#ff7a59 0%,transparent 60%),
     radial-gradient(700px 500px at 60% 20%,#2ad3c6 0%,transparent 55%),
     linear-gradient(160deg,#0f1226,#1a1b3a 60%,#3b2a4f)}
-  .bar{position:absolute;top:0;left:0;right:0;height:38px;background:rgba(28,28,34,.72);backdrop-filter:blur(30px);display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#f2f2f5;font-size:15px}
-  .bar .left b{font-weight:700;margin-right:18px}.bar .left span{margin-right:18px;opacity:.95}
-  .bar .right{display:flex;align-items:center;gap:16px}
+  .menubar{position:absolute;top:0;left:0;right:0;height:38px;background:rgba(28,28,34,.72);backdrop-filter:blur(30px);display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#f2f2f5;font-size:15px}
+  .menubar .left b{font-weight:700;margin-right:18px}.menubar .left span{margin-right:18px;opacity:.95}
+  .menubar .right{display:flex;align-items:center;gap:16px}
   .item{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px}
   .item.active{background:rgba(255,255,255,.18)}
   .badge{font-weight:700;font-size:13px}
@@ -180,7 +198,7 @@ const desktop = ({ t = 1, open = true, banner = false, needs = needsAt(t), mood 
   .copy h1{font-size:56px;margin:0 0 10px;letter-spacing:-.02em}.copy p{font-size:22px;line-height:1.45;margin:0;opacity:.9}
 </style>
 <div class="desk">
-  <div class="bar">
+  <div class="menubar">
     <div class="left"><b></b><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
     <div class="right icons">
       <div class="item ${open ? "active" : ""}">${dog(mood)}${needs > 0 ? `<span class="badge">${needs}</span>` : ""}</div>
@@ -191,7 +209,7 @@ const desktop = ({ t = 1, open = true, banner = false, needs = needsAt(t), mood 
   </div>
   ${open ? popover({ groups: groupsAt(t) }) : ""}
   ${banner ? `<div class="banner"><div class="ico">${dog(amber, 24)}</div><div><b>acme-api needs you</b><span>Bash go test</span></div><small>now</small></div>` : ""}
-  <div class="copy"><h1>corgi-bar</h1><p>Every Claude Code session in your menu bar. Amber while it works, red when it needs you, blue when the account hit its limit. Click a row to jump to it. Allow from the bar. Talk to dictate.</p></div>
+  <div class="copy"><h1>corgi-bar</h1><p>Every Claude Code session in your menu bar. Amber while it works, red when it needs you, blue when the account hit its limit. Click a row to jump to it. Allow from the bar. Press the mic to dictate.</p></div>
 </div>`;
 
 /** A close-up on a flat ground: the popover alone, for crops and stories. */
@@ -226,7 +244,7 @@ write("frames/accounts.html", closeup({ groups: [], part: "accounts" }));
 // The story: a session asks, you allow from the bar, it finishes, yours finishes.
 for (let t = 0; t <= 5; t++) write(`frames/story-${t}.html`, closeup({ groups: groupsAt(t) }));
 
-// Talk: press, it records, press again and the words land in the front session.
+// Talk: press the mic, it records, press again and the words land in the front session.
 write("frames/talk-0.html", closeup({ groups: groupsAt(3), part: "talk" }));
 write("frames/talk-1.html", closeup({ groups: groupsAt(3), part: "talk", talk: "rec" }));
 write("frames/talk-2.html", closeup({ groups: groupsAt(3), part: "talk", prompt: "run the tests and fix what fails" }));

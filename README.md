@@ -4,7 +4,7 @@ Your Claude Code sessions in the macOS menu bar. The dog is amber while a
 session works, red with a count when one waits for you, blue when the account
 hit its usage limit.
 
-<p align="center"><img src="docs/media/hero.png" width="560" alt="corgi-bar open: sessions grouped by workspace, Allow and Deny on the one that asks, accounts with usage windows, Talk"></p>
+<p align="center"><img src="docs/media/hero.png" width="560" alt="corgi-bar open: sessions grouped by workspace, Allow and Deny on the one that asks, accounts with usage windows, Remote, the mic in the footer"></p>
 
 <p align="center"><img src="docs/media/menubar.gif" width="300" alt="The menu bar item: grey, amber, red with a count, green, blue"></p>
 
@@ -12,8 +12,8 @@ hit its usage limit.
 
 One row per session, grouped by workspace. The name is the chat title once
 Claude has set one. The line under it is what the session is doing now, or
-your note. The thin bar is the context window: orange past 60%, red past
-85%. **slow** means a working session has been silent for 12 minutes. The
+your note. The thin bar is the context window: grey, red from 85%.
+**slow** means a working session has been silent for 12 minutes. The
 blue edge marks the session in the front window. Talk and the prompt field
 go there.
 
@@ -48,17 +48,19 @@ The workspaces the daemon supervises for your phone. A grey dot with
 "device" is a machine reachable from the Claude app with no session open
 and nothing spent. Green is a session. **Stop** ends a session and keeps
 the device. **Pause** stops supervising that workspace
-(`corgi agent workspaces resume` brings it back). **Open dashboard** is the
-phone launcher.
+(`corgi agent workspaces resume` brings it back). Stop, Start and Pause show
+when the pointer is over a row; **Open** is always there. **Open dashboard**
+is the phone launcher.
 
 ## Talk and type
 
-**Talk** (`ctrl+alt+space` anywhere): press to speak, press again to send.
-The prompt field types into the front session (`ctrl+alt+p` opens it from
-anywhere; Return sends, Option+Return types without Enter). `ctrl+alt+n`
-jumps to the session that has waited longest.
+The **mic** in the footer (`ctrl+alt+space` anywhere): press to speak, press
+again to send; it turns red while it listens. The prompt field types into
+the front session (`ctrl+alt+p` opens it from anywhere; Return sends,
+Option+Return types without Enter). `ctrl+alt+n` jumps to the session that
+has waited longest.
 
-<p align="center"><img src="docs/media/talk.gif" width="400" alt="Talk pressed, REC, press again to send; a prompt typed into the field"></p>
+<p align="center"><img src="docs/media/talk.gif" width="400" alt="The mic pressed, red while it listens, pressed again to send; a prompt typed into the field"></p>
 
 The **+** button opens a new `claude` terminal in the front window, under
 that folder's account. A notification arrives when a session starts

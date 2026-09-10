@@ -175,14 +175,12 @@ enum Palette {
         }
     }
 
-    /// Grey while there is room, orange past 60, red past 85.
+    /// Grey while there is room, red from 85: the Stream Deck plugin's rule.
     static func context(_ percent: Int) -> Color {
-        switch percent {
-        case 86...: return red
-        case 61...85: return amber
-        default: return Color.secondary.opacity(0.6)
-        }
+        percent >= 85 ? red : Color.secondary.opacity(0.3)
     }
+
+    static let sectionTitle = Font.system(size: 11, weight: .semibold)
 }
 
 struct BoardView: View {
@@ -198,72 +196,16 @@ struct BoardView: View {
     private let ticker = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                TextField(promptPlaceholder, text: $prompt)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($promptFocused)
-                    .onSubmit(sendPrompt)
-                    .disabled(!watcher.board.daemonRunning)
-                Button {
-                    Corgi.shared.runInBackground(["agent", "new"])
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .disabled(!watcher.board.daemonRunning || watcher.board.windows.isEmpty)
-                .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : "New session: a claude terminal in the window in front")
-            }
-            Text("Return sends · ⌥Return types without Enter · \(settings.promptHotKey)").font(.system(size: 9)).foregroundStyle(.tertiary)
-
+        VStack(alignment: .leading, spacing: 0) {
+            promptSection.padding(.vertical, 10)
             Divider()
-            if watcher.board.sessions.isEmpty {
-                Text(watcher.board.daemonRunning ? "No Claude Code session running" : "corgi agent is not running")
-                    .foregroundStyle(.secondary).padding(.vertical, 4)
-            }
-            ForEach(watcher.board.groups) { group in
-                GroupHeader(group: group)
-                ForEach(group.sessions) { session in
-                    SessionRow(session: session, board: watcher.board, now: now, talk: talk, carriedId: $carriedId,
-                               showProfile: group.commonProfileChip == nil)
-                }
-            }
+            sessionsSection.padding(.vertical, 10)
             AccountsView(watcher: watcher)
             RemoteView(watcher: watcher)
             Divider()
-            HStack {
-                Button {
-                    talk.press()
-                } label: {
-                    Label(talk.state == .recording ? "REC · press to send" : "Talk", systemImage: talk.state == .recording ? "record.circle.fill" : "mic")
-                        .foregroundStyle(talk.state == .recording ? Palette.red : Color.primary)
-                }
-                .keyboardShortcut("t", modifiers: [.command])
-                Spacer()
-                Text(settings.hotKey).font(.caption).foregroundStyle(.secondary)
-            }
-            if let err = talk.lastError {
-                Text(err).font(.caption).foregroundStyle(Palette.red)
-            }
-            if let notice = watcher.board.notice, let at = watcher.board.noticeAt, now.timeIntervalSince(at) < 60 {
-                Text(notice).font(.caption).foregroundStyle(.orange)
-            }
-            Divider()
-            HStack {
-                Text(footer).font(.caption).foregroundStyle(.secondary)
-                if let v = updates.available {
-                    Button("\(v) available") { NSWorkspace.shared.open(UpdateCheck.releasesURL) }
-                        .buttonStyle(.plain).foregroundStyle(Palette.blue).font(.caption)
-                        .help("brew upgrade --cask corgi-bar, or download from the release page")
-                }
-                Spacer()
-                Button("Settings…") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }.font(.caption)
-                Button("Quit") { NSApp.terminate(nil) }.font(.caption)
-            }
+            footerSection.padding(.vertical, 10)
         }
-        .padding(10)
+        .padding(.horizontal, 10)
         .frame(width: 340)
         // Opaque, not the menu bar's glass: status colours have to read on a
         // known surface, not on whatever wallpaper is blurred behind them.
@@ -282,6 +224,73 @@ struct BoardView: View {
             if requested {
                 promptFocus.requested = false
                 promptFocused = true
+            }
+        }
+    }
+
+    private var promptSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                TextField(promptPlaceholder, text: $prompt)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($promptFocused)
+                    .onSubmit(sendPrompt)
+                    .disabled(!watcher.board.daemonRunning)
+                Button {
+                    Corgi.shared.runInBackground(["agent", "new"])
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .disabled(!watcher.board.daemonRunning || watcher.board.windows.isEmpty)
+                .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : "New session in the front window")
+            }
+            if promptFocused {
+                Text("⏎ send · ⌥⏎ newline · \(HotKey.symbols(settings.promptHotKey))")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var sessionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if watcher.board.sessions.isEmpty {
+                Text(watcher.board.daemonRunning ? "No Claude Code session running" : "corgi agent is not running")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(watcher.board.groups) { group in
+                VStack(alignment: .leading, spacing: 2) {
+                    GroupHeader(group: group)
+                    ForEach(group.sessions) { session in
+                        SessionRow(session: session, board: watcher.board, now: now, talk: talk, carriedId: $carriedId,
+                                   showProfile: group.commonProfileChip == nil)
+                    }
+                }
+            }
+        }
+    }
+
+    private var footerSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let err = talk.lastError {
+                Text(err).font(.caption).foregroundStyle(Palette.red)
+            }
+            if let notice = watcher.board.notice, let at = watcher.board.noticeAt, now.timeIntervalSince(at) < 60 {
+                Text(notice).font(.caption).foregroundStyle(.orange)
+            }
+            if let v = updates.available {
+                Button("corgi-bar \(v) available") { NSWorkspace.shared.open(UpdateCheck.releasesURL) }
+                    .buttonStyle(.plain).foregroundStyle(Palette.blue).font(.caption)
+                    .help("brew upgrade --cask corgi-bar, or download from the release page")
+            }
+            HStack(spacing: 6) {
+                Text(footer).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Spacer()
+                TalkButton(talk: talk, hotKey: settings.hotKey)
+                Button("Settings") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }.font(.caption)
+                Button("Quit") { NSApp.terminate(nil) }.font(.caption)
             }
         }
     }
@@ -317,7 +326,7 @@ struct GroupHeader: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(group.label).font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+            Text(group.label).font(Palette.sectionTitle).foregroundStyle(.secondary)
             if let chip = group.commonProfileChip {
                 Chip(chip)
             }
@@ -327,7 +336,35 @@ struct GroupHeader: View {
             }
         }
         .padding(.horizontal, 4)
-        .padding(.top, 6)
+    }
+}
+
+/// The mic in the footer: red and pulsing while the session in front records.
+struct TalkButton: View {
+    @ObservedObject var talk: Talk
+    var hotKey: String
+    @State private var pulsing = false
+
+    var body: some View {
+        let recording = talk.state == .recording
+        Button { talk.press() } label: {
+            Image(systemName: "mic.fill")
+                .foregroundStyle(recording ? Palette.red : Color.primary)
+                .opacity(recording && pulsing ? 0.35 : 1)
+        }
+        .font(.caption)
+        .keyboardShortcut("t", modifiers: [.command])
+        .help(recording ? "Listening · press to send" : "Talk · \(hotKey)")
+        .onAppear { pulse(recording) }
+        .onChange(of: recording) { pulse($0) }
+    }
+
+    private func pulse(_ on: Bool) {
+        if on {
+            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { pulsing = true }
+        } else {
+            withAnimation(.default) { pulsing = false }
+        }
     }
 }
 
@@ -513,14 +550,14 @@ struct AnswerButtons: View {
     }
 }
 
-/// Two pixels under a row: how full the session's context window is.
+/// Two points under a row: how full the session's context window is.
 struct ContextBar: View {
     var percent: Int
 
     var body: some View {
         GeometryReader { g in
             ZStack(alignment: .leading) {
-                Rectangle().fill(Color.primary.opacity(0.08))
+                Rectangle().fill(Color.primary.opacity(0.06))
                 Rectangle().fill(Palette.context(percent)).frame(width: g.size.width * CGFloat(percent) / 100)
             }
         }
@@ -541,6 +578,7 @@ struct AccountsView: View {
         if !accounts.isEmpty {
             Divider()
             VStack(alignment: .leading, spacing: 6) {
+                Text("Accounts").font(Palette.sectionTitle).foregroundStyle(.secondary).padding(.horizontal, 4)
                 ForEach(accounts) { a in
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
@@ -579,6 +617,7 @@ struct AccountsView: View {
                     .padding(.horizontal, 4)
                 }
             }
+            .padding(.vertical, 10)
             .onAppear(perform: loadSamples)
             .onChange(of: samplesKey(accounts)) { _ in loadSamples() }
         }
@@ -635,52 +674,76 @@ struct RemoteView: View {
         if watcher.status.running, !watcher.status.workspaces.isEmpty {
             Divider()
             DisclosureGroup(isExpanded: $expanded) {
-                ForEach(watcher.status.workspaces) { w in
-                    let live = w.running && !(w.deviceOnly ?? false)
-                    HStack(spacing: 6) {
-                        Circle().fill(live ? Palette.green : Color.secondary).frame(width: 6, height: 6)
-                        Text(w.workspaceId).font(.system(size: 11))
-                        if w.running, !live {
-                            Text("device").font(.system(size: 9)).foregroundStyle(.tertiary)
-                                .help("Reachable from the phone and the Claude app; no session open, nothing spent")
-                        }
-                        Spacer()
-                        if let url = w.sessionUrl, let u = URL(string: url) {
-                            Button("Open") { NSWorkspace.shared.open(u) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
-                        }
-                        if live {
-                            Button("Stop") { session("stop", w.workspaceId) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
-                                .help("End the session; the device stays online")
-                        } else if !w.running {
-                            Button("Start") { session("start", w.workspaceId) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
-                        }
-                        if w.running {
-                            Button("Pause") {
-                                Corgi.shared.runInBackground(["agent", "workspaces", "pause", w.workspaceId]) { _ in
-                                    self.watcher.refreshStatus(force: true)
-                                }
-                            }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(.secondary)
-                                .help("Stop supervising this workspace: no device at login, no restarts. `corgi agent workspaces resume` brings it back")
-                        }
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(watcher.status.workspaces) { w in
+                        RemoteRow(workspace: w, watcher: watcher)
                     }
-                    .padding(.horizontal, 4)
+                    if let url = watcher.status.dashboardUrl, let u = URL(string: url) {
+                        Button { NSWorkspace.shared.open(u) } label: {
+                            Label("Open dashboard", systemImage: "iphone").font(.system(size: 11))
+                        }.buttonStyle(.plain).foregroundStyle(Palette.blue).padding(.horizontal, 4).padding(.top, 2)
+                    }
                 }
-                if let url = watcher.status.dashboardUrl, let u = URL(string: url) {
-                    Button { NSWorkspace.shared.open(u) } label: {
-                        Label("Open dashboard", systemImage: "iphone").font(.system(size: 11))
-                    }.buttonStyle(.plain).foregroundStyle(Palette.blue).padding(.horizontal, 4)
-                }
+                .padding(.top, 4)
             } label: {
                 let live = watcher.status.workspaces.filter { $0.running && !($0.deviceOnly ?? false) }.count
                 let devices = watcher.status.workspaces.filter { $0.running && ($0.deviceOnly ?? false) }.count
                 Text(remoteSummary(live: live, devices: devices, total: watcher.status.workspaces.count))
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Palette.sectionTitle).foregroundStyle(.secondary)
             }
+            .padding(.vertical, 10)
         }
     }
+}
 
-    private func session(_ verb: String, _ id: String) {
-        Corgi.shared.runInBackground(["agent", "session", verb, id]) { _ in
+/// One workspace: dot, name, its state, Open. Stop, Start and Pause show
+/// while the pointer is over the row.
+struct RemoteRow: View {
+    var workspace: AgentStatus.Workspace
+    @ObservedObject var watcher: BoardWatcher
+    @State private var hover = false
+
+    var body: some View {
+        let w = workspace
+        let live = w.running && !(w.deviceOnly ?? false)
+        HStack(spacing: 6) {
+            Circle().fill(live ? Palette.green : Color.secondary).frame(width: 6, height: 6)
+            Text(w.workspaceId).font(.system(size: 11)).lineLimit(1)
+            Text(live ? "session" : w.running ? "device" : "off").font(.system(size: 9)).foregroundStyle(.tertiary)
+                .help(live ? "A session is open in the Claude app" : w.running ? "Reachable from the phone and the Claude app; no session open, nothing spent" : "Not supervised right now")
+            Spacer()
+            if hover {
+                if live {
+                    control("Stop") { session("stop") }
+                        .help("End the session; the device stays online")
+                } else if !w.running {
+                    control("Start") { session("start") }
+                }
+                if w.running {
+                    control("Pause") {
+                        Corgi.shared.runInBackground(["agent", "workspaces", "pause", w.workspaceId]) { _ in
+                            self.watcher.refreshStatus(force: true)
+                        }
+                    }
+                    .help("Stop supervising this workspace: no device at login, no restarts. `corgi agent workspaces resume` brings it back")
+                }
+            }
+            if let url = w.sessionUrl, let u = URL(string: url) {
+                Button("Open") { NSWorkspace.shared.open(u) }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1)
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+    }
+
+    private func control(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action).font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(.secondary)
+    }
+
+    private func session(_ verb: String) {
+        Corgi.shared.runInBackground(["agent", "session", verb, workspace.workspaceId]) { _ in
             self.watcher.refreshStatus(force: true)
         }
     }

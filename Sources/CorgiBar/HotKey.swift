@@ -28,6 +28,21 @@ final class HotKey {
         presets.first { $0.name == name }
     }
 
+    /// "ctrl+alt+p" as the keyboard shows it: ⌃⌥P. "off" is empty.
+    static func symbols(_ name: String) -> String {
+        guard name != "off" else { return "" }
+        return name.split(separator: "+").map { part -> String in
+            switch part {
+            case "ctrl": return "⌃"
+            case "alt": return "⌥"
+            case "cmd": return "⌘"
+            case "shift": return "⇧"
+            case "space": return "␣"
+            default: return part.uppercased()
+            }
+        }.joined()
+    }
+
     private var ref: EventHotKeyRef?
     private let id: UInt32
     private let action: () -> Void
