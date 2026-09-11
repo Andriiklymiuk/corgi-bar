@@ -22,6 +22,19 @@ final class WatchTests: XCTestCase {
         XCTAssertEqual(s.workspaces[0].fixes?.perDay, 10)
     }
 
+    func testABlockedTicketSaysWhyAndNewKindsHaveWords() throws {
+        let s = try decode("""
+        {"events":[
+          {"key":"jira:ABC-9:c1","ref":"ABC-9","kind":"issue.comment","workspace":"api","title":"still failing","at":"2026-09-10T12:00:00Z","blocked":"2 runs failed"},
+          {"key":"gh:api#12:n1","ref":"api#12","kind":"review.requested","workspace":"api","at":"2026-09-10T12:00:00Z"},
+          {"key":"gh:api#13:ci","ref":"api#13","kind":"ci.failed","workspace":"api","at":"2026-09-10T12:00:00Z"}]}
+        """)
+        XCTAssertEqual(s.events[0].blocked, "2 runs failed")
+        XCTAssertNil(s.events[1].blocked)
+        XCTAssertEqual(s.events[1].kindLabel, "review asked")
+        XCTAssertEqual(s.events[2].kindLabel, "build red")
+    }
+
     func testEmptyAndMalformedAreNotACrash() throws {
         XCTAssertFalse(try decode("{}").watched)
         XCTAssertEqual(try decode("{}").fixes.count, 0)

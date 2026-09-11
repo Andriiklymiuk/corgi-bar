@@ -396,6 +396,9 @@ struct SessionRow: View {
             if session.status == .limited {
                 carry
             }
+            if session.isDrifting {
+                fresh
+            }
         }
         .padding(.vertical, 3)
         .padding(.leading, 6)
@@ -433,6 +436,11 @@ struct SessionRow: View {
                             .background(RoundedRectangle(cornerRadius: 3).fill(Palette.amber.opacity(0.25)))
                             .help("Working, but no event for 12 minutes")
                     }
+                    if session.isDrifting {
+                        Text("drift").font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Palette.red.opacity(0.25)))
+                            .help(session.driftText)
+                    }
                     if let e = session.focusError, !e.isEmpty {
                         Text("⚠").help(e)
                     }
@@ -453,15 +461,32 @@ struct SessionRow: View {
         .padding(.horizontal, 4)
     }
 
-    /// The note when there is one, else what the session is doing.
+    /// The note when there is one, else what the session is doing, else the
+    /// branch it is on.
     private var secondary: String? {
         if let note = session.note, !note.isEmpty { return note }
+        if let why = session.drift?.first, !why.isEmpty { return why }
         if session.isStuck {
             return "no activity \(elapsedText(since: session.lastActivity, now: now))"
         }
         if let pending = session.answerable { return "permission: \(pending.text)" }
+        if let line = session.limitLine(now: now) { return line }
         if let d = session.detail, !d.isEmpty { return d }
+        if let b = session.branch, !b.isEmpty { return b }
         return nil
+    }
+
+    /// The way out of a drift: a clean session started from a handoff,
+    /// under the same account. What the phone's Fresh button does.
+    @ViewBuilder private var fresh: some View {
+        HStack(spacing: 6) {
+            Button("Fresh from a handoff") {
+                Corgi.shared.runInBackground(["agent", "carry", session.id, "--fresh"])
+            }
+            .buttonStyle(.bordered).controlSize(.mini)
+            .help("Leave a handoff and start this session clean:\n" + session.driftText)
+        }
+        .padding(.horizontal, 4)
     }
 
     @ViewBuilder private var carry: some View {
@@ -497,6 +522,11 @@ struct SessionRow: View {
             }
         }
         Button("Compact context") { talk.sendText(session, "/compact", enter: true) }
+        Button("Fresh from a handoff") { Corgi.shared.runInBackground(["agent", "carry", session.id, "--fresh"]) }
+            .disabled(session.status == .gone)
+        if let pr = session.pullRequest {
+            Button("Open pull request") { NSWorkspace.shared.open(pr) }
+        }
         if settings.approveFromBar, session.answerable != nil {
             Divider()
             Button("Allow always") { talk.answer(session, .always) }
@@ -869,8 +899,18 @@ struct WatchView: View {
                                 if !item.title.isEmpty {
                                     Text(item.title).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                                 }
+                                if let why = item.blocked, !why.isEmpty {
+                                    Text("blocked: \(why)").font(.system(size: 10)).foregroundStyle(Palette.red).lineLimit(1)
+                                }
                             }
                             Spacer()
+                            if item.blocked != nil {
+                                Button("Unblock") { watcher.unblock(item) }
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(Palette.blue)
+                                    .help("Let unattended runs work this ticket again")
+                            }
                             if let link = item.link {
                                 Button("Open") { NSWorkspace.shared.open(link) }
                                     .buttonStyle(.plain)
@@ -887,6 +927,7 @@ struct WatchView: View {
                         .padding(.horizontal, 4)
                         .contextMenu {
                             if let link = item.link { Button("Open") { NSWorkspace.shared.open(link) } }
+                            if item.blocked != nil { Button("Unblock") { watcher.unblock(item) } }
                             Button("Ignore") { watcher.ignore(item) }
                         }
                     }

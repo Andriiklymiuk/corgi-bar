@@ -68,6 +68,15 @@ final class BoardWatcher: ObservableObject {
         }
     }
 
+    /// Let unattended runs work a blocked ticket again, then re-read.
+    func unblock(_ item: WatchStatus.Item) {
+        var args = ["agent", "watch", "unblock", item.ref.isEmpty ? item.key : item.ref]
+        if !item.workspace.isEmpty { args += ["--workspace", item.workspace] }
+        Corgi.shared.runInBackground(args) { [weak self] _ in
+            DispatchQueue.main.async { self?.refreshWatch() }
+        }
+    }
+
     /// Turn the unattended mode on or off for one workspace, then re-read.
     /// The daemon has to be restarted for it to take, which corgi says too.
     func setAuto(_ on: Bool, workspace id: String) {

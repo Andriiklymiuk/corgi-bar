@@ -40,7 +40,7 @@ const row = (s) => `
   <div class="line">
     <span class="dot" style="background:${s.color}"></span>
     <div class="txt">
-      <div class="name">${s.title ?? s.name}${s.title ? chip(s.name) : ""}${s.chip ? chip(s.chip) : ""}${s.slow ? `<span class="slow">slow</span>` : ""}</div>
+      <div class="name">${s.title ?? s.name}${s.title ? chip(s.name) : ""}${s.chip ? chip(s.chip) : ""}${s.slow ? `<span class="slow">slow</span>` : ""}${s.drift ? `<span class="drift">drift</span>` : ""}</div>
       ${s.detail ? `<div class="detail${s.note ? " note" : ""}">${s.detail}</div>` : ""}
     </div>
     <div class="right"><div class="status" style="color:${s.color}">${s.status}</div>${s.elapsed ? `<div class="elapsed">${s.elapsed}</div>` : ""}</div>
@@ -48,6 +48,7 @@ const row = (s) => `
   </div>
   ${s.ctx ? `<div class="ctx"><i style="width:${s.ctx}%;background:${ctxColor(s.ctx)}"></i></div>` : ""}
   ${s.carry ? `<div class="carry"><span>Carry to ${s.carry}</span></div>` : ""}
+  ${s.drift ? `<div class="carry"><span>Fresh from a handoff</span></div>` : ""}
 </div>`;
 
 const group = (g) => `
@@ -135,6 +136,7 @@ const css = `
   .answer .pressed{background:${green};color:#04250f;border-color:${green};box-shadow:0 0 0 3px rgba(48,209,88,.28)}
   .carry{padding:3px 4px 0}.carry span{font-size:10px;padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.1)}
   .slow{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;background:rgba(255,159,10,.25);margin-left:5px;vertical-align:1px}
+  .drift{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;background:rgba(255,69,58,.25);margin-left:5px;vertical-align:1px}
   .dot{width:8px;height:8px;border-radius:50%;flex:none}
   .txt{flex:1;min-width:0}.name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .chip{display:inline-block;font-size:9px;font-weight:700;border:1px solid ${secondary};border-radius:3px;padding:0 3px;margin-left:5px;vertical-align:1px;line-height:12px}
@@ -180,7 +182,8 @@ const groupsAt = (t) => {
 		{ label: "corgi", sessions: [corgi, corgi2] },
 		{ label: "acme-api", chip: "WK", sessions: [acme] },
 		{ label: "web", sessions: [web] },
-		{ label: "mobile", chip: "WK", sessions: [{ name: "mobile", detail: "resets 1:10pm", status: "LIMIT", color: blue, carry: "default" }] },
+		{ label: "mobile", chip: "WK", sessions: [{ name: "mobile", detail: "continues 1:10pm", status: "LIMIT", color: blue, carry: "default" }] },
+		{ label: "search", sessions: [{ name: "search", detail: "context 91% full — /compact, or fresh from a handoff", status: "WORKING", color: amber, elapsed: "41m", ctx: 91, drift: true }] },
 		{ label: "billing", sessions: [{ name: "billing", status: "IDLE", color: secondary, elapsed: "31m" }] },
 	];
 };

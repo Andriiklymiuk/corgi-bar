@@ -266,6 +266,20 @@ struct Session: Decodable, Identifiable {
     var pending: Pending?
     var note: String?
     var stuck: Bool?
+    /// The cwd's branch as of the last prompt; what Claude last said; the
+    /// last pull request it linked.
+    var branch: String?
+    var summary: String?
+    var pr: String?
+    /// Which kind of limit a limited session hit ("quota" or "overload"),
+    /// and when the daemon plans to type "continue" into it.
+    var limit: String?
+    var resumeAt: Date?
+    var resumes: Int?
+    /// What the daemon concluded a person should look at: a context nearly
+    /// full, the same tool failing on repeat, a diff past its budget. Empty
+    /// when there is nothing.
+    var drift: [String]?
 
     var name: String { display ?? label }
     /// What tells this session from its workspace siblings: the part of the
@@ -288,6 +302,26 @@ struct Session: Decodable, Identifiable {
     var answerable: Pending? { status == .needsInput ? pending : nil }
 
     var isStuck: Bool { stuck == true && status == .working }
+
+    var isDrifting: Bool { !(drift ?? []).isEmpty }
+    var driftText: String { (drift ?? []).joined(separator: "\n") }
+
+    var pullRequest: URL? {
+        guard let pr, pr.hasPrefix("https://") else { return nil }
+        return URL(string: pr)
+    }
+
+    /// What a limited session is waiting for: the API to calm down, or the
+    /// minute the daemon continues it.
+    func limitLine(now: Date) -> String? {
+        guard status == .limited else { return nil }
+        if limit == "overload" { return "API overloaded — retried on its own" }
+        if let at = resumeAt, at > now, at.timeIntervalSince1970 > 946_684_800 {
+            let n = resumes ?? 0
+            return "continues \(LimitBar.resetText(at))" + (n > 0 ? " · \(n) so far" : "")
+        }
+        return nil
+    }
 
     /// The two-letter chip for another account: ~/.claude-work → WK, client → CL.
     var profileChip: String? {

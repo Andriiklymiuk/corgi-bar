@@ -106,11 +106,21 @@ Top to bottom:
      bar focuses the session the Talk way and presses the keys itself.
    - Secondary click → menu: **Dismiss** (not for working / needs_input),
      **Pin / Unpin** (by key number), **Compact context** (`corgi agent send
-     <id> --enter /compact`), **Allow always** / **Deny** when pending and
-     approving is on, **Mute session** / **Mute workspace**, **Copy session
-     id**, **Open folder in Finder** (`cwd`).
+     <id> --enter /compact`), **Fresh from a handoff** (`corgi agent carry
+     <id> --fresh`), **Open pull request** when `pr` is set, **Allow
+     always** / **Deny** when pending and approving is on, **Mute session** /
+     **Mute workspace**, **Copy session id**, **Open folder in Finder** (`cwd`).
+   - A drifting row (`drift[]` non-empty: the daemon read a context nearly
+     full, the same tool failing on repeat, a diff past its budget) shows a
+     red **drift** chip with the reasons as its tooltip, the first reason
+     as its line, and a **Fresh from a handoff** button. The line under a
+     row is, in order: the note, the drift reason, "no activity …" when
+     stuck, the permission, the limit ("continues 12:50 · 2 so far" from
+     `resumeAt` / `resumes`, or "API overloaded — retried on its own" when
+     `limit` is overload), `detail`, then `branch`.
    - A `limited` row shows "resets …" in blue where the elapsed time would
-     be, and a **Carry to <profile>** button for every other account in
+     be, "continues …" under it when the daemon plans to, and a **Carry to
+     <profile>** button for every other account in
      `accounts[]` with `fiveHour.percent < 90` → `corgi agent carry <id>
      --profile <profile>`. When the board then says the workspace lists no
      accounts, that notice shows under the row: corgi refuses moves the

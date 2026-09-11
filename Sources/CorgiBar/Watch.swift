@@ -88,9 +88,12 @@ struct WatchStatus: Decodable {
         var url: String?
         var state: String?
         var at: Date?
+        /// Why unattended runs stopped on this ticket: the breaker tripped
+        /// after two failed runs, or someone blocked it by hand.
+        var blocked: String?
         var id: String { key }
 
-        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at }
+        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             key = try c.decodeIfPresent(String.self, forKey: .key) ?? ""
@@ -101,6 +104,7 @@ struct WatchStatus: Decodable {
             url = try c.decodeIfPresent(String.self, forKey: .url)
             state = try c.decodeIfPresent(String.self, forKey: .state)
             at = try c.decodeIfPresent(Date.self, forKey: .at)
+            blocked = try c.decodeIfPresent(String.self, forKey: .blocked)
         }
 
         /// What kind of thing it is, in the words the menu has room for.
@@ -110,6 +114,9 @@ struct WatchStatus: Decodable {
             case "issue.comment": return "comment"
             case "pr.comment": return "PR comment"
             case "pr.review": return "PR review"
+            case "review.requested": return "review asked"
+            case "ci.failed": return "build red"
+            case "routine": return "routine"
             default: return kind
             }
         }

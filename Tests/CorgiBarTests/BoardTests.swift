@@ -116,6 +116,30 @@ final class BoardContractTests: XCTestCase {
         XCTAssertEqual(board.agentDir, "/Users/me/Library/Application Support/corgi/agent")
     }
 
+    func testDecodesDriftLimitAndThePullRequest() throws {
+        let board = try Board.decode(Data("""
+        {"sessions":[
+          {"id":"a","label":"api","status":"working","host":{"kind":"iterm"},
+           "branch":"feature/ABC-4","pr":"https://github.com/acme/api/pull/9",
+           "drift":["context 91% full — /compact, or fresh from a handoff","diff is 5200 lines, far past the usual size"]},
+          {"id":"b","label":"web","status":"limited","host":{"kind":"iterm"},"limit":"quota",
+           "resumeAt":"2026-09-10T12:50:00Z","resumes":2},
+          {"id":"c","label":"ops","status":"limited","host":{"kind":"iterm"},"limit":"overload"},
+          {"id":"d","label":"old","status":"limited","host":{"kind":"iterm"},"resumeAt":"0001-01-01T00:00:00Z"}]}
+        """.utf8))
+        let a = board.sessions[0]
+        XCTAssertTrue(a.isDrifting)
+        XCTAssertEqual(a.drift?.first, "context 91% full — /compact, or fresh from a handoff")
+        XCTAssertEqual(a.pullRequest?.absoluteString, "https://github.com/acme/api/pull/9")
+        XCTAssertEqual(a.branch, "feature/ABC-4")
+        let now = Date(timeIntervalSince1970: 1_789_000_000)
+        XCTAssertTrue(board.sessions[1].limitLine(now: now)?.hasPrefix("continues ") == true)
+        XCTAssertTrue(board.sessions[1].limitLine(now: now)?.hasSuffix("· 2 so far") == true)
+        XCTAssertEqual(board.sessions[2].limitLine(now: now), "API overloaded — retried on its own")
+        XCTAssertNil(board.sessions[3].limitLine(now: now), "a zero time from an older laptop is not a time")
+        XCTAssertFalse(board.sessions[3].isDrifting)
+    }
+
     func testPendingOnlyCountsWhileWaiting() throws {
         var board = try fixture()
         board.sessions[0].status = .working

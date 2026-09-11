@@ -125,3 +125,13 @@ and restarts the daemon for you.
 An unattended fix runs for minutes and its notification is gone in a second,
 so the section also shows what is running, and what the finished runs opened —
 **Open** goes straight to the pull request.
+
+Above those sits the inbox: what arrived and still waits on a person, with
+**Open**, **Ignore**, and **Unblock** on a ticket the breaker stopped after two
+failed runs (the reason is right there in red).
+
+A session the daemon thinks is drifting — context nearly full, the same tool
+failing on repeat, a diff far past its budget — gets a red **drift** chip with
+the reasons, and a **Fresh from a handoff** button: a clean session, same
+account, picking up from the handoff it leaves. A limited one says when the
+daemon continues it.
