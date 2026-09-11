@@ -154,7 +154,9 @@ including tasks of your own (`corgi agent task add`). The row is the ticket —
 click it to open it on the tracker — with **Ignore**, and **Unblock** on a
 ticket the breaker stopped after two failed runs (the reason is right there
 in red). A row that was picked says *picked from the phone · waiting for a
-session*, then names the session on it.
+session*, then names the session on it. Right-click a row or a run with a
+pull request of yours for **Ready for review**, **Merge** and **Close pull
+request**.
 
 **Hidden workspaces** (Settings › Board) tuck a workspace away while you show
 the screen to someone: its sessions, tickets, runs and remote rows leave the

@@ -999,6 +999,14 @@ struct WatchView: View {
                         .contextMenu {
                             if let link = item.link { Button("Open") { NSWorkspace.shared.open(link) } }
                             if item.blocked != nil { Button("Unblock") { watcher.unblock(item) } }
+                            if let pr = item.pullRequest {
+                                Divider()
+                                Button("Open pull request") { NSWorkspace.shared.open(pr) }
+                                Button("Ready for review") { watcher.pullRequest("ready", key: item.key) }
+                                Button("Merge") { watcher.pullRequest("merge", key: item.key) }
+                                Button("Close pull request") { watcher.pullRequest("close", key: item.key) }
+                                Divider()
+                            }
                             Button("Ignore") { watcher.ignore(item) }
                         }
                     }
@@ -1048,7 +1056,15 @@ struct WatchView: View {
                     .padding(.horizontal, 4)
                     .contextMenu {
                         if let link = fix.link { Button("Open ticket") { NSWorkspace.shared.open(link) } }
-                        if let pr = fix.pullRequest { Button("Open pull request") { NSWorkspace.shared.open(pr) } }
+                        if let pr = fix.pullRequest {
+                            Button("Open pull request") { NSWorkspace.shared.open(pr) }
+                            if let key = fix.key {
+                                Divider()
+                                Button("Ready for review") { watcher.pullRequest("ready", key: key) }
+                                Button("Merge") { watcher.pullRequest("merge", key: key) }
+                                Button("Close pull request") { watcher.pullRequest("close", key: key) }
+                            }
+                        }
                     }
                 }
             }

@@ -123,6 +123,17 @@ final class BoardWatcher: ObservableObject {
         }
     }
 
+    /// A pull request of mine, from the row: out of draft, merged, closed.
+    /// `corgi agent watch pr` refuses one that is not mine.
+    func pullRequest(_ verb: String, key: String) {
+        Corgi.shared.runInBackground(["agent", "watch", "pr", verb, key]) { [weak self] r in
+            DispatchQueue.main.async {
+                if !r.ok { Notifier.shared.say("corgi", r.stderr.isEmpty ? r.stdout : r.stderr) }
+                self?.refreshWatch()
+            }
+        }
+    }
+
     /// Let unattended runs work a blocked ticket again, then re-read.
     func unblock(_ item: WatchStatus.Item) {
         var args = ["agent", "watch", "unblock", item.ref.isEmpty ? item.key : item.ref]

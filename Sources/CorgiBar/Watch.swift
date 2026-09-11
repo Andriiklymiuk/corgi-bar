@@ -121,7 +121,14 @@ struct WatchStatus: Decodable {
         var session: SessionRef?
         /// Work on it pressed, and by whom, while the session is on its way.
         var picked: Pick?
+        /// The pull request of mine this row lets me mark ready, merge or close.
+        var pr: String?
         var id: String { key }
+
+        var pullRequest: URL? {
+            guard let pr, pr.hasPrefix("https://") else { return nil }
+            return URL(string: pr)
+        }
 
         struct SessionRef: Decodable {
             var id: String
@@ -134,7 +141,7 @@ struct WatchStatus: Decodable {
             var by: String?
         }
 
-        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked, session, picked }
+        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked, session, picked, pr }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             key = try c.decodeIfPresent(String.self, forKey: .key) ?? ""
@@ -148,6 +155,7 @@ struct WatchStatus: Decodable {
             blocked = try c.decodeIfPresent(String.self, forKey: .blocked)
             session = try? c.decodeIfPresent(SessionRef.self, forKey: .session)
             picked = try? c.decodeIfPresent(Pick.self, forKey: .picked)
+            pr = try c.decodeIfPresent(String.self, forKey: .pr)
         }
 
         /// "session api · working" when a session is on the ticket; "picked

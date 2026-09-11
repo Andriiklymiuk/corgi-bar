@@ -87,6 +87,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// One plain notification: what corgi answered when a click could not
+    /// do what it said — the menu has no room for an error line.
+    func say(_ title: String, _ body: String) {
+        guard let center else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = String(body.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+        center.add(UNNotificationRequest(identifier: "said-\(Date().timeIntervalSince1970)", content: content, trigger: nil))
+    }
+
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler done: @escaping () -> Void) {
         if let id = response.notification.request.content.userInfo["sessionId"] as? String {
             DispatchQueue.main.async { self.onOpen?(id) }
