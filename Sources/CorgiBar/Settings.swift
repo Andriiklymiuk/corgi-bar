@@ -34,6 +34,24 @@ final class Preferences: ObservableObject {
         }
     }
 
+    /// The first launch turns login start on. Nobody installs a menu bar app
+    /// to open it by hand every morning, and the phone dashboard is dead after
+    /// a reboot without it. Running from a build directory cannot register,
+    /// so a failure just leaves the toggle off. Once only: a person who turned
+    /// it off is not asked again by the next update.
+    private func registerAtLoginOnFirstRun() {
+        let key = "launchAtLoginDecided"
+        guard !d.bool(forKey: key) else { return }
+        d.set(true, forKey: key)
+        guard !launchAtLogin, Bundle.main.bundleURL.path.hasPrefix("/Applications/") else { return }
+        do {
+            try SMAppService.mainApp.register()
+            launchAtLogin = true
+        } catch {
+            launchAtLogin = false
+        }
+    }
+
     private init() {
         terminalChord = d.string(forKey: "terminalChord") ?? "ctrl+y"
         panelChord = d.string(forKey: "panelChord") ?? "cmd+d"
@@ -52,6 +70,7 @@ final class Preferences: ObservableObject {
         soundLimited = d.string(forKey: "soundLimited") ?? ""
         corgiPath = d.string(forKey: "corgiPath") ?? ""
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        registerAtLoginOnFirstRun()
         Notifier.shared.enabled = notifications
         Corgi.shared.overridePath = corgiPath.isEmpty ? nil : corgiPath
         pushQuietHours()
@@ -107,6 +126,8 @@ struct GeneralSettings: View {
             }
             Section("App") {
                 Toggle("Launch at login", isOn: $settings.launchAtLogin)
+                Text("On by default: a menu bar that is not there after a reboot is the one that lied to you. macOS lists it under System Settings › General › Login Items.")
+                    .font(.caption).foregroundStyle(.secondary)
                 TextField("corgi path (blank = automatic)", text: $settings.corgiPath)
                 Button("Run corgi agent doctor") {
                     Corgi.shared.runInBackground(["agent", "doctor"]) { r in doctor = r.stdout + r.stderr }

@@ -58,6 +58,16 @@ final class BoardWatcher: ObservableObject {
         }
     }
 
+    /// Take one inbox row out for good. corgi keeps the decision in its own
+    /// file, so the phone and the editor drop the row on their next read too.
+    /// The row leaves the menu at once rather than after the next tick.
+    func ignore(_ item: WatchStatus.Item) {
+        watch.events.removeAll { $0.key == item.key }
+        Corgi.shared.runInBackground(["agent", "watch", "ignore", item.key]) { [weak self] _ in
+            DispatchQueue.main.async { self?.refreshWatch() }
+        }
+    }
+
     /// Turn the unattended mode on or off for one workspace, then re-read.
     /// The daemon has to be restarted for it to take, which corgi says too.
     func setAuto(_ on: Bool, workspace id: String) {

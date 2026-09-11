@@ -877,8 +877,18 @@ struct WatchView: View {
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundStyle(Palette.blue)
                             }
+                            Button { watcher.ignore(item) } label: {
+                                Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .help("Ignore: out of the inbox everywhere, nothing written to the tracker")
                         }
                         .padding(.horizontal, 4)
+                        .contextMenu {
+                            if let link = item.link { Button("Open") { NSWorkspace.shared.open(link) } }
+                            Button("Ignore") { watcher.ignore(item) }
+                        }
                     }
                     if watch.events.count > 5 {
                         Text("and \(watch.events.count - 5) more")
