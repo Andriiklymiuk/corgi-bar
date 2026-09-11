@@ -105,9 +105,18 @@ struct WatchStatus: Decodable {
         /// Why unattended runs stopped on this ticket: the breaker tripped
         /// after two failed runs, or someone blocked it by hand.
         var blocked: String?
+        /// The live session on the ticket, when one is: opened for it by
+        /// "Work on it", or on a branch named after it.
+        var session: SessionRef?
         var id: String { key }
 
-        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked }
+        struct SessionRef: Decodable {
+            var id: String
+            var label: String
+            var status: String
+        }
+
+        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked, session }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             key = try c.decodeIfPresent(String.self, forKey: .key) ?? ""
@@ -119,6 +128,14 @@ struct WatchStatus: Decodable {
             state = try c.decodeIfPresent(String.self, forKey: .state)
             at = try c.decodeIfPresent(Date.self, forKey: .at)
             blocked = try c.decodeIfPresent(String.self, forKey: .blocked)
+            session = try? c.decodeIfPresent(SessionRef.self, forKey: .session)
+        }
+
+        /// "session api · working", when a session is on the ticket.
+        var sessionLine: String? {
+            guard let session else { return nil }
+            let word = ["needs_input": "needs you", "working": "working", "done": "done", "stale": "idle", "limited": "limit"][session.status] ?? session.status
+            return "session \(session.label) · \(word)"
         }
 
         /// What kind of thing it is, in the words the menu has room for.

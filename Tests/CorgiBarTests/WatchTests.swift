@@ -66,6 +66,15 @@ final class WatchTests: XCTestCase {
         XCTAssertNil(s.fixes[0].pullRequest, "anything that is not https is not a link to open")
     }
 
+    func testAnInboxRowNamesTheSessionOnIt() throws {
+        let s = try decode("""
+        {"events":[{"key":"linear:A-1","ref":"A-1","kind":"issue.new","session":{"id":"s1","label":"api 2","status":"working"}},
+                   {"key":"linear:A-2","ref":"A-2","kind":"issue.new"}]}
+        """)
+        XCTAssertEqual(s.events[0].sessionLine, "session api 2 · working")
+        XCTAssertNil(s.events[1].sessionLine)
+    }
+
     func testARunRowOpensItsPullRequestElseItsTicket() throws {
         let s = try decode("""
         {"fixes":[

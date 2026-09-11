@@ -965,6 +965,9 @@ struct WatchView: View {
                                 if let why = item.blocked, !why.isEmpty {
                                     Text("blocked: \(why)").font(.system(size: 10)).foregroundStyle(Palette.red).lineLimit(1)
                                 }
+                                if let line = item.sessionLine {
+                                    Text(line).font(.system(size: 10)).foregroundStyle(Palette.amber).lineLimit(1)
+                                }
                             }
                             }
                             Spacer()
