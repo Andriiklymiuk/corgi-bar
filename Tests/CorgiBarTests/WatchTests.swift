@@ -66,6 +66,15 @@ final class WatchTests: XCTestCase {
         XCTAssertNil(s.fixes[0].pullRequest, "anything that is not https is not a link to open")
     }
 
+    func testAWatchSaysWhichDaysItSleeps() throws {
+        let s = try decode("""
+        {"workspaces":[{"workspace":"api","daysOff":["sat","sun"],"asleep":true},{"workspace":"web","daysOff":["fri"]},{"workspace":"x"}]}
+        """)
+        XCTAssertEqual(s.workspaces[0].daysOffLine, "asleep today")
+        XCTAssertEqual(s.workspaces[1].daysOffLine, "off fri")
+        XCTAssertNil(s.workspaces[2].daysOffLine)
+    }
+
     func testAnInboxRowNamesTheSessionOnIt() throws {
         let s = try decode("""
         {"events":[{"key":"linear:A-1","ref":"A-1","kind":"issue.new","session":{"id":"s1","label":"api 2","status":"working"}},

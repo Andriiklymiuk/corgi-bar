@@ -19,12 +19,15 @@ struct WatchStatus: Decodable {
         var action: String = "notify"
         var interval: String?
         var quiet: String?
+        /// Days the watch sleeps through, and whether today is one.
+        var daysOff: [String] = []
+        var asleep = false
         var fixes: Budget?
         var id: String { workspace }
 
         // corgi omits empty fields, so every optional one is decoded as such:
         // a synthesized decoder would fail the whole payload over a missing key.
-        enum CodingKeys: String, CodingKey { case workspace, sources, action, interval, quiet, fixes }
+        enum CodingKeys: String, CodingKey { case workspace, sources, action, interval, quiet, daysOff, asleep, fixes }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             workspace = try c.decode(String.self, forKey: .workspace)
@@ -32,7 +35,15 @@ struct WatchStatus: Decodable {
             action = try c.decodeIfPresent(String.self, forKey: .action) ?? "notify"
             interval = try c.decodeIfPresent(String.self, forKey: .interval)
             quiet = try c.decodeIfPresent(String.self, forKey: .quiet)
+            daysOff = try c.decodeIfPresent([String].self, forKey: .daysOff) ?? []
+            asleep = try c.decodeIfPresent(Bool.self, forKey: .asleep) ?? false
             fixes = try c.decodeIfPresent(Budget.self, forKey: .fixes)
+        }
+
+        /// "off sat, sun", or "asleep today" when today is one of them.
+        var daysOffLine: String? {
+            if daysOff.isEmpty { return nil }
+            return asleep ? "asleep today" : "off " + daysOff.joined(separator: ", ")
         }
 
         /// Unattended: it works on what arrives instead of only reporting it.

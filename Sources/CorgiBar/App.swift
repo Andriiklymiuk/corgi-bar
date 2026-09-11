@@ -926,6 +926,10 @@ struct WatchView: View {
                         if let quiet = ws.quiet, !quiet.isEmpty {
                             Text("quiet \(quiet)").font(.system(size: 9)).foregroundStyle(.tertiary).lineLimit(1)
                         }
+                        if let off = ws.daysOffLine {
+                            Text(off).font(.system(size: 9)).foregroundStyle(ws.asleep ? Palette.amber : Color.secondary.opacity(0.6)).lineLimit(1)
+                                .help("The watch sleeps through these days: no polling, no fix, nothing rings until the next working day")
+                        }
                         Spacer()
                         Button(ws.isAuto ? "Stop" : "Auto") {
                             watcher.setAuto(!ws.isAuto, workspace: ws.workspace)

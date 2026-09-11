@@ -139,8 +139,10 @@ Release: bump `VERSION`, push `main`. CI builds, signs, notarizes, tags
 
 When `corgi agent watch` is on, the menu gains a **Watching** section: one row
 per workspace, whether it only reports (`notify`) or works on what arrives
-(`auto`), and its quiet window. **Auto** / **Stop** flips that from the menu
-and restarts the daemon for you.
+(`auto`), its quiet window and its days off (`corgi agent watch enable
+--days-off weekends`: no polling, nothing rings; *asleep today* on such a
+day). **Auto** / **Stop** flips that from the menu and restarts the daemon
+for you.
 
 An unattended fix runs for minutes and its notification is gone in a second,
 so the section also shows what is running, and what the finished runs opened.
