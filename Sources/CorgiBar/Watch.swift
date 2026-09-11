@@ -40,9 +40,12 @@ struct WatchStatus: Decodable {
     }
 
     struct Fix: Decodable, Identifiable {
+        var key: String?
         var ref: String
         var workspace: String
         var kind: String?
+        /// The ticket the run was about, when corgi still has its row.
+        var url: String?
         var startedAt: Date?
         var running: Bool = false
         var prs: [String] = []
@@ -50,12 +53,14 @@ struct WatchStatus: Decodable {
         var error: String?
         var id: String { workspace + "/" + ref + (startedAt.map { String($0.timeIntervalSince1970) } ?? "") }
 
-        enum CodingKeys: String, CodingKey { case ref, workspace, kind, startedAt, running, prs, note, error }
+        enum CodingKeys: String, CodingKey { case key, ref, workspace, kind, url, startedAt, running, prs, note, error }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
+            key = try c.decodeIfPresent(String.self, forKey: .key)
             ref = try c.decodeIfPresent(String.self, forKey: .ref) ?? ""
             workspace = try c.decodeIfPresent(String.self, forKey: .workspace) ?? ""
             kind = try c.decodeIfPresent(String.self, forKey: .kind)
+            url = try c.decodeIfPresent(String.self, forKey: .url)
             startedAt = try c.decodeIfPresent(Date.self, forKey: .startedAt)
             running = try c.decodeIfPresent(Bool.self, forKey: .running) ?? false
             prs = try c.decodeIfPresent([String].self, forKey: .prs) ?? []
@@ -68,6 +73,15 @@ struct WatchStatus: Decodable {
             guard let first = prs.first(where: { $0.hasPrefix("https://") }) else { return nil }
             return URL(string: first)
         }
+
+        /// The ticket itself.
+        var link: URL? {
+            guard let url, url.hasPrefix("https://") else { return nil }
+            return URL(string: url)
+        }
+
+        /// Where a click on the row goes: the pull request it opened, else the ticket.
+        var destination: URL? { pullRequest ?? link }
 
         var outcome: String {
             if running { return "running" }

@@ -218,6 +218,12 @@ Three tabs.
   `CFBundleIdentifier com.andriiklymiuk.corgi-bar`, `LSUIElement true`,
   version from a `VERSION` file; ad-hoc `codesign --force --deep --sign -`),
   `run`, `install` (copy to /Applications), `test`.
+- App Intents (`Sources/CorgiBar/Intents.swift`: start / stop a session,
+  send, answer, the board, reload; `CorgiShortcuts` with the phrases). Xcode
+  extracts their metadata as a build phase and `swift build` does not, so
+  `build` compiles with `-emit-const-values` and `app` runs
+  `scripts/appintents.sh`, the same `appintentsmetadataprocessor`, writing
+  `Contents/Resources/Metadata.appintents` before signing.
 - `.github/workflows/release.yml`: on push to `main`, if `v<VERSION>` has no
   tag: build on `macos-latest`, `make app`, zip, tag, GitHub Release with the
   zip. Only `GITHUB_TOKEN`. The corgi VS Code extension's `release.yml` is

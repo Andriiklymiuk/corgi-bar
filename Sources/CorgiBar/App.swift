@@ -99,6 +99,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         Notifier.shared.prepare()
+        // Siri learns the workspace names ("start acme-api in corgi-bar")
+        // from here; off the main thread, it runs corgi to list them.
+        Task.detached(priority: .utility) { CorgiShortcuts.updateAppShortcutParameters() }
     }
 
     @MainActor
@@ -770,7 +773,9 @@ struct RemoteRow: View {
         let live = w.running && !(w.deviceOnly ?? false)
         HStack(spacing: 6) {
             Circle().fill(live ? Palette.green : Color.secondary).frame(width: 6, height: 6)
-            Text(w.workspaceId).font(.system(size: 11)).lineLimit(1)
+            OpenRow(link: w.sessionUrl.flatMap(URL.init(string:)), help: "Open the session in the Claude app") {
+                Text(w.workspaceId).font(.system(size: 11)).lineLimit(1)
+            }
             Text(live ? "session" : w.running ? "device" : "off").font(.system(size: 9)).foregroundStyle(.tertiary)
                 .help(live ? "A session is open in the Claude app" : w.running ? "Reachable from the phone and the Claude app; no session open, nothing spent" : "Not supervised right now")
             Spacer()
@@ -807,6 +812,34 @@ struct RemoteRow: View {
     private func session(_ verb: String) {
         Corgi.shared.runInBackground(["agent", "session", verb, workspace.workspaceId]) { _ in
             self.watcher.refreshStatus(force: true)
+        }
+    }
+}
+
+/// A row's text as the link it stands for: a plain click opens it in the
+/// browser, the pointer says so, nothing else about the row changes. With
+/// no link it is just the text.
+struct OpenRow<Content: View>: View {
+    var link: URL?
+    var help: String
+    @ViewBuilder var content: () -> Content
+    @State private var hover = false
+
+    var body: some View {
+        if let link {
+            Button { NSWorkspace.shared.open(link) } label: {
+                content()
+                    .contentShape(Rectangle())
+                    .underline(hover, color: Palette.blue)
+            }
+            .buttonStyle(.plain)
+            .onHover { over in
+                hover = over
+                if over { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
+            .help(help)
+        } else {
+            content()
         }
     }
 }
@@ -915,6 +948,7 @@ struct WatchView: View {
                     ForEach(watch.events.prefix(5)) { item in
                         HStack(spacing: 6) {
                             Circle().fill(Palette.blue.opacity(0.7)).frame(width: 7, height: 7)
+                            OpenRow(link: item.link, help: "Open \(item.ref.isEmpty ? item.key : item.ref) on the tracker") {
                             VStack(alignment: .leading, spacing: 1) {
                                 HStack(spacing: 5) {
                                     Text(item.ref.isEmpty ? item.key : item.ref)
@@ -931,6 +965,7 @@ struct WatchView: View {
                                 if let why = item.blocked, !why.isEmpty {
                                     Text("blocked: \(why)").font(.system(size: 10)).foregroundStyle(Palette.red).lineLimit(1)
                                 }
+                            }
                             }
                             Spacer()
                             if item.blocked != nil {
@@ -966,10 +1001,14 @@ struct WatchView: View {
                     }
                 }
 
+                // A run's row is the ticket: click it for the tracker, or
+                // the pull request it opened when it opened one.
                 ForEach(live) { fix in
                     HStack(spacing: 6) {
                         Circle().fill(Palette.amber).frame(width: 7, height: 7)
-                        Text(fix.ref).font(.system(size: 11)).lineLimit(1)
+                        OpenRow(link: fix.link, help: "Open \(fix.ref) on the tracker") {
+                            Text(fix.ref).font(.system(size: 11)).lineLimit(1)
+                        }
                         Spacer()
                         Text(elapsedSince(fix.startedAt, now: now)).font(.system(size: 10)).foregroundStyle(Palette.amber)
                     }
@@ -978,17 +1017,32 @@ struct WatchView: View {
 
                 ForEach(done) { fix in
                     HStack(spacing: 6) {
-                        Text(fix.ref).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                        Text(fix.outcome).font(.system(size: 10)).foregroundStyle(fix.error == nil ? Color.secondary : Palette.red).lineLimit(1)
+                        OpenRow(link: fix.destination, help: fix.pullRequest != nil ? "Open the pull request" : "Open \(fix.ref) on the tracker") {
+                            HStack(spacing: 6) {
+                                Text(fix.ref).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                                Text(fix.outcome).font(.system(size: 10)).foregroundStyle(fix.error == nil ? Color.secondary : Palette.red).lineLimit(1)
+                            }
+                        }
                         Spacer()
                         if let pr = fix.pullRequest {
-                            Button("Open") { NSWorkspace.shared.open(pr) }
+                            Button("PR") { NSWorkspace.shared.open(pr) }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Palette.blue)
+                                .help("Open the pull request")
+                        }
+                        if let link = fix.link, fix.pullRequest != nil {
+                            Button("Ticket") { NSWorkspace.shared.open(link) }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(Palette.blue)
                         }
                     }
                     .padding(.horizontal, 4)
+                    .contextMenu {
+                        if let link = fix.link { Button("Open ticket") { NSWorkspace.shared.open(link) } }
+                        if let pr = fix.pullRequest { Button("Open pull request") { NSWorkspace.shared.open(pr) } }
+                    }
                 }
             }
             .padding(.vertical, 8)

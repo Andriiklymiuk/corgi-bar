@@ -66,6 +66,18 @@ final class WatchTests: XCTestCase {
         XCTAssertNil(s.fixes[0].pullRequest, "anything that is not https is not a link to open")
     }
 
+    func testARunRowOpensItsPullRequestElseItsTicket() throws {
+        let s = try decode("""
+        {"fixes":[
+          {"key":"linear:A-1","ref":"A-1","workspace":"w","url":"https://linear.app/x/issue/A-1","running":false,"prs":["https://github.com/acme/api/pull/7"]},
+          {"key":"linear:A-2","ref":"A-2","workspace":"w","url":"https://linear.app/x/issue/A-2","running":false},
+          {"ref":"A-3","workspace":"w","url":"file:///etc/passwd","running":false}]}
+        """)
+        XCTAssertEqual(s.fixes[0].destination?.absoluteString, "https://github.com/acme/api/pull/7", "the pull request it opened comes first")
+        XCTAssertEqual(s.fixes[1].destination?.absoluteString, "https://linear.app/x/issue/A-2", "else the ticket")
+        XCTAssertNil(s.fixes[2].destination, "only https opens")
+    }
+
     func testRecentForgetsOldNewsAndTheSummaryReadsPlainly() throws {
         let now = Date(timeIntervalSince1970: 1_757_500_000)
         let old = ISO8601DateFormatter().string(from: now.addingTimeInterval(-48 * 3600))

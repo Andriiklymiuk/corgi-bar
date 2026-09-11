@@ -52,6 +52,26 @@ the device. **Pause** stops supervising that workspace
 when the pointer is over a row; **Open** is always there. **Open dashboard**
 is the phone launcher.
 
+## Siri and Shortcuts
+
+corgi-bar is in the Shortcuts app and answers Siri on the Mac, with the same
+intents the phone app has, so a shortcut synced over iCloud reads the same on
+both:
+
+- **Start a session in corgi-bar** / **Start acme-api in corgi-bar** — a
+  supervised session in a workspace (`corgi agent session start`).
+- **Stop the session in corgi-bar**.
+- **Send to corgi-bar** — text typed into a session and sent; with no
+  session named, the one waiting on you.
+- **Allow in corgi-bar** — allow, allow always or deny what a session is
+  waiting on.
+- **What is corgi-bar doing** — one line per session, spoken or returned to
+  the next action.
+- **Reload corgi-bar**.
+
+Workspaces and sessions are picked from lists Siri fills from the board. The
+app has to have been opened once on this Mac for the intents to register.
+
 ## Talk and type
 
 The **mic** in the footer (`ctrl+alt+space` anywhere): press to speak, press
@@ -123,12 +143,14 @@ per workspace, whether it only reports (`notify`) or works on what arrives
 and restarts the daemon for you.
 
 An unattended fix runs for minutes and its notification is gone in a second,
-so the section also shows what is running, and what the finished runs opened —
-**Open** goes straight to the pull request.
+so the section also shows what is running, and what the finished runs opened.
+A run's row is a link: click it for the pull request it opened, else the
+ticket; **PR** and **Ticket** sit beside it when there are both.
 
-Above those sits the inbox: what arrived and still waits on a person, with
-**Open**, **Ignore**, and **Unblock** on a ticket the breaker stopped after two
-failed runs (the reason is right there in red).
+Above those sits the inbox: what arrived and still waits on a person. The row
+is the ticket — click it to open it on the tracker — with **Ignore**, and
+**Unblock** on a ticket the breaker stopped after two failed runs (the reason
+is right there in red).
 
 **Hidden workspaces** (Settings › Board) tuck a workspace away while you show
 the screen to someone: its sessions, tickets, runs and remote rows leave the
