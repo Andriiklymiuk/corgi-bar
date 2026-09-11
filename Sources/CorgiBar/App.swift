@@ -30,6 +30,35 @@ struct CorgiBarApp: App {
     }
 }
 
+/// Opens the Settings scene. `showSettingsWindow:` was the selector on
+/// macOS 13; from 14 a MenuBarExtra ignores it, and SwiftUI's own
+/// `openSettings` is the way. The app comes forward first so the window
+/// is not born behind whatever was in front.
+struct SettingsButton: View {
+    var body: some View {
+        if #available(macOS 14, *) {
+            ModernSettingsButton()
+        } else {
+            Button("Settings") {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }.font(.caption)
+        }
+    }
+}
+
+@available(macOS 14, *)
+private struct ModernSettingsButton: View {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Button("Settings") {
+            NSApp.activate(ignoringOtherApps: true)
+            openSettings()
+        }.font(.caption)
+    }
+}
+
 /// The quick prompt hotkey opens the dropdown and asks the field to take focus.
 final class PromptFocus: ObservableObject {
     static let shared = PromptFocus()
@@ -292,10 +321,7 @@ struct BoardView: View {
                     .font(.caption)
                     .help("Reload: the daemon rescans sessions and polls every tracker now; the phone and the page see it too")
                 TalkButton(talk: talk, hotKey: settings.hotKey)
-                Button("Settings") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }.font(.caption)
+                SettingsButton()
                 Button("Quit") { NSApp.terminate(nil) }.font(.caption)
             }
         }
