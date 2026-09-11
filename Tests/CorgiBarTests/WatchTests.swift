@@ -73,6 +73,11 @@ final class WatchTests: XCTestCase {
         """)
         XCTAssertEqual(s.events[0].sessionLine, "session api 2 · working")
         XCTAssertNil(s.events[1].sessionLine)
+        let t = try decode("""
+        {"events":[{"key":"task:1","ref":"TASK-1","kind":"task","picked":{"at":"2026-09-11T12:00:00Z","by":"phone"}}]}
+        """)
+        XCTAssertEqual(t.events[0].kindLabel, "task")
+        XCTAssertEqual(t.events[0].sessionLine, "picked from the phone · waiting for a session")
     }
 
     func testARunRowOpensItsPullRequestElseItsTicket() throws {

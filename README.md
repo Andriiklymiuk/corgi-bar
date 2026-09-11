@@ -147,10 +147,12 @@ so the section also shows what is running, and what the finished runs opened.
 A run's row is a link: click it for the pull request it opened, else the
 ticket; **PR** and **Ticket** sit beside it when there are both.
 
-Above those sits the inbox: what arrived and still waits on a person. The row
-is the ticket — click it to open it on the tracker — with **Ignore**, and
-**Unblock** on a ticket the breaker stopped after two failed runs (the reason
-is right there in red).
+Above those sits the inbox: what arrived and still waits on a person,
+including tasks of your own (`corgi agent task add`). The row is the ticket —
+click it to open it on the tracker — with **Ignore**, and **Unblock** on a
+ticket the breaker stopped after two failed runs (the reason is right there
+in red). A row that was picked says *picked from the phone · waiting for a
+session*, then names the session on it.
 
 **Hidden workspaces** (Settings › Board) tuck a workspace away while you show
 the screen to someone: its sessions, tickets, runs and remote rows leave the

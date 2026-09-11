@@ -108,6 +108,8 @@ struct WatchStatus: Decodable {
         /// The live session on the ticket, when one is: opened for it by
         /// "Work on it", or on a branch named after it.
         var session: SessionRef?
+        /// Work on it pressed, and by whom, while the session is on its way.
+        var picked: Pick?
         var id: String { key }
 
         struct SessionRef: Decodable {
@@ -116,7 +118,12 @@ struct WatchStatus: Decodable {
             var status: String
         }
 
-        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked, session }
+        struct Pick: Decodable {
+            var at: Date?
+            var by: String?
+        }
+
+        enum CodingKeys: String, CodingKey { case key, ref, kind, workspace, title, url, state, at, blocked, session, picked }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             key = try c.decodeIfPresent(String.self, forKey: .key) ?? ""
@@ -129,13 +136,21 @@ struct WatchStatus: Decodable {
             at = try c.decodeIfPresent(Date.self, forKey: .at)
             blocked = try c.decodeIfPresent(String.self, forKey: .blocked)
             session = try? c.decodeIfPresent(SessionRef.self, forKey: .session)
+            picked = try? c.decodeIfPresent(Pick.self, forKey: .picked)
         }
 
-        /// "session api · working", when a session is on the ticket.
+        /// "session api · working" when a session is on the ticket; "picked
+        /// from the phone · waiting for a session" while one is on its way.
         var sessionLine: String? {
-            guard let session else { return nil }
-            let word = ["needs_input": "needs you", "working": "working", "done": "done", "stale": "idle", "limited": "limit"][session.status] ?? session.status
-            return "session \(session.label) · \(word)"
+            if let session {
+                let word = ["needs_input": "needs you", "working": "working", "done": "done", "stale": "idle", "limited": "limit"][session.status] ?? session.status
+                return "session \(session.label) · \(word)"
+            }
+            if let picked {
+                let from = ["cli": "command line", "page": "page", "editor": "editor"][picked.by ?? ""] ?? "phone"
+                return "picked from the \(from) · waiting for a session"
+            }
+            return nil
         }
 
         /// What kind of thing it is, in the words the menu has room for.
@@ -148,6 +163,7 @@ struct WatchStatus: Decodable {
             case "review.requested": return "review asked"
             case "ci.failed": return "build red"
             case "routine": return "routine"
+            case "task": return "task"
             default: return kind
             }
         }
