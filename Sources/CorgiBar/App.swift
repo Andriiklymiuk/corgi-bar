@@ -5,12 +5,12 @@ import Combine
 @main
 struct CorgiBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var watcher = BoardWatcher()
+    @StateObject private var watcher = BoardWatcher.shared
     @StateObject private var talk: Talk
     @ObservedObject private var settings = Preferences.shared
 
     init() {
-        let watcher = BoardWatcher()
+        let watcher = BoardWatcher.shared
         _watcher = StateObject(wrappedValue: watcher)
         _talk = StateObject(wrappedValue: Talk(watcher: watcher))
     }
@@ -288,6 +288,9 @@ struct BoardView: View {
             HStack(spacing: 6) {
                 Text(footer).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
+                Button { watcher.reloadEverything() } label: { Image(systemName: "arrow.clockwise") }
+                    .font(.caption)
+                    .help("Reload: the daemon rescans sessions and polls every tracker now; the phone and the page see it too")
                 TalkButton(talk: talk, hotKey: settings.hotKey)
                 Button("Settings") {
                     NSApp.activate(ignoringOtherApps: true)

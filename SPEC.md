@@ -110,6 +110,13 @@ Top to bottom:
      <id> --fresh`), **Open pull request** when `pr` is set, **Allow
      always** / **Deny** when pending and approving is on, **Mute session** /
      **Mute workspace**, **Copy session id**, **Open folder in Finder** (`cwd`).
+   - **Hidden workspaces** (Preferences `hiddenWorkspaces`, Settings › Hidden
+     workspaces): `Board.hiding` drops the sessions whose label, folder or
+     cwd matches (by name or last path component), empties their keys and
+     recomputes the counts; watch rows, fixes, inbox items and remote rows
+     of those workspaces are dropped too; the notifier reads the filtered
+     board. The footer's ↻ runs `corgi agent refresh` (rescan + poll every
+     tracker now) and re-reads 1.5 s later.
    - A drifting row (`drift[]` non-empty: the daemon read a context nearly
      full, the same tool failing on repeat, a diff past its budget) shows a
      red **drift** chip with the reasons as its tooltip, the first reason

@@ -47,6 +47,26 @@ struct Board: Decodable {
         daemonRunning = try c.decodeIfPresent(Bool.self, forKey: .daemonRunning) ?? false
     }
 
+    /// The same board without the sessions of hidden workspaces — a label,
+    /// or the folder's last path component — and with their keys emptied,
+    /// counts recomputed. What the menu shows while someone is watching.
+    func hiding(_ hidden: (String?) -> Bool) -> Board {
+        var out = self
+        let gone = Set(sessions.filter { hidden($0.label) || hidden($0.folder) || hidden($0.cwd) }.map(\.id))
+        if gone.isEmpty { return self }
+        out.sessions = sessions.filter { !gone.contains($0.id) }
+        out.slots = slots.map { slot in
+            guard let id = slot.sessionId, gone.contains(id) else { return slot }
+            var s = slot
+            s.sessionId = nil; s.empty = true; s.context = nil; s.pending = nil; s.note = nil; s.stuck = nil
+            return s
+        }
+        out.needsInput = out.sessions.filter { $0.status == .needsInput }.count
+        out.working = out.sessions.filter { $0.status == .working }.count
+        if let f = frontSession, gone.contains(f) { out.frontSession = nil }
+        return out
+    }
+
     /// Sessions in board order: the keys first, then whatever overflowed.
     var orderedSessions: [Session] {
         let byId = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })

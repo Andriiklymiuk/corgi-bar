@@ -140,6 +140,28 @@ final class BoardContractTests: XCTestCase {
         XCTAssertFalse(board.sessions[3].isDrifting)
     }
 
+    // A hidden workspace leaves the board whole: its sessions, its keys, the
+    // counts — by label, or by the folder's last path component.
+    func testHidingAWorkspaceTakesItsSessionsAndKeys() throws {
+        let board = try Board.decode(Data("""
+        {"needsInput":1,"working":1,"frontSession":"a",
+         "slots":[{"index":0,"sessionId":"a","pending":"Bash"},{"index":1,"sessionId":"b"}],
+         "sessions":[
+          {"id":"a","label":"secret","folder":"/home/me/dev/secret","status":"needs_input","host":{"kind":"iterm"}},
+          {"id":"b","label":"api","folder":"/home/me/dev/api","status":"working","host":{"kind":"iterm"}}]}
+        """.utf8))
+        let hidden = board.hiding { $0 == "secret" || ($0 as NSString?)?.lastPathComponent == "secret" }
+        XCTAssertEqual(hidden.sessions.map(\.id), ["b"])
+        XCTAssertNil(hidden.slots[0].sessionId)
+        XCTAssertEqual(hidden.slots[0].empty, true)
+        XCTAssertNil(hidden.slots[0].pending)
+        XCTAssertEqual(hidden.needsInput, 0)
+        XCTAssertEqual(hidden.working, 1)
+        XCTAssertNil(hidden.frontSession)
+        XCTAssertEqual(hidden.mood, .off, "no daemon flag in this fixture")
+        XCTAssertEqual(board.hiding { _ in false }.sessions.count, 2, "nothing hidden, nothing changes")
+    }
+
     func testPendingOnlyCountsWhileWaiting() throws {
         var board = try fixture()
         board.sessions[0].status = .working

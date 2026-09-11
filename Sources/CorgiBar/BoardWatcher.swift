@@ -6,11 +6,60 @@ import Combine
 /// poll covers a missed event and a daemon that went away.
 @MainActor
 final class BoardWatcher: ObservableObject {
+    static let shared = BoardWatcher()
+
+    /// What the menu shows: the board, status and watch with the hidden
+    /// workspaces taken out. The raw copies stay for the picker in Settings.
     @Published private(set) var board: Board = .empty
     @Published private(set) var corgiVersion: String?
     @Published private(set) var corgiPresent = true
     @Published private(set) var status: AgentStatus = .empty
     @Published private(set) var watch: WatchStatus = .empty
+    private var rawBoard: Board = .empty
+    private var rawStatus: AgentStatus = .empty
+    private var rawWatch: WatchStatus = .empty
+    private var prefs: AnyCancellable?
+
+    init() {
+        prefs = Preferences.shared.$hiddenWorkspaces.dropFirst().sink { [weak self] _ in
+            Task { @MainActor in self?.refilter() }
+        }
+    }
+
+    /// Every workspace the bar has heard of, for the Settings picker.
+    var knownWorkspaces: [String] {
+        var names = Set<String>()
+        for s in rawBoard.sessions { names.insert(s.label) }
+        for w in rawWatch.workspaces { names.insert(w.workspace) }
+        for w in rawStatus.workspaces { names.insert(w.workspaceId) }
+        return names.sorted { $0.lowercased() < $1.lowercased() }
+    }
+
+    private func refilter() {
+        let hide = Preferences.shared.isHidden
+        board = rawBoard.hiding(hide)
+        var s = rawStatus
+        s.workspaces = s.workspaces.filter { !hide($0.workspaceId) }
+        status = s
+        var w = rawWatch
+        w.workspaces = w.workspaces.filter { !hide($0.workspace) }
+        w.fixes = w.fixes.filter { !hide($0.workspace) }
+        w.events = w.events.filter { !hide($0.workspace) }
+        watch = w
+    }
+
+    /// The reload button: the daemon rescans and polls every tracker now, and
+    /// this menu re-reads once it has had a moment to publish — the phone and
+    /// the page pick up the same picture on their own.
+    func reloadEverything() {
+        Corgi.shared.runInBackground(["agent", "refresh"]) { [weak self] _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                self?.refreshFromCLI()
+                self?.refreshStatus(force: true)
+                self?.refreshWatch()
+            }
+        }
+    }
 
     private var path: String?
     private var source: DispatchSourceFileSystemObject?
@@ -43,7 +92,10 @@ final class BoardWatcher: ObservableObject {
                 return date
             }
             guard r.ok, let data = r.stdout.data(using: .utf8), let status = try? decoder.decode(AgentStatus.self, from: data) else { return }
-            DispatchQueue.main.async { self.status = status }
+            DispatchQueue.main.async {
+                self.rawStatus = status
+                self.refilter()
+            }
         }
     }
 
@@ -54,7 +106,10 @@ final class BoardWatcher: ObservableObject {
             let r = Corgi.shared.run(["agent", "watch", "--json"])
             guard r.ok, let data = r.stdout.data(using: .utf8),
                   let watch = try? WatchStatus.decode(data) else { return }
-            DispatchQueue.main.async { self.watch = watch }
+            DispatchQueue.main.async {
+                self.rawWatch = watch
+                self.refilter()
+            }
         }
     }
 
@@ -184,7 +239,9 @@ final class BoardWatcher: ObservableObject {
     private func apply(_ board: Board) {
         let previous = self.board
         lastUpdatedAt = board.updatedAt
-        self.board = board
-        Notifier.shared.boardMoved(from: previous, to: board)
+        rawBoard = board
+        self.board = board.hiding(Preferences.shared.isHidden)
+        // The notifier sees the filtered board: a hidden workspace never rings.
+        Notifier.shared.boardMoved(from: previous, to: self.board)
     }
 }

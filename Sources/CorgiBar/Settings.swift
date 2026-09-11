@@ -23,6 +23,10 @@ final class Preferences: ObservableObject {
     @Published var soundDone: String { didSet { d.set(soundDone, forKey: "soundDone"); pushSounds() } }
     @Published var soundLimited: String { didSet { d.set(soundLimited, forKey: "soundLimited"); pushSounds() } }
     @Published var corgiPath: String { didSet { d.set(corgiPath, forKey: "corgiPath"); Corgi.shared.overridePath = corgiPath.isEmpty ? nil : corgiPath } }
+    /// Workspaces tucked away while this screen is shown to someone: their
+    /// sessions, tickets, runs and remote rows leave the menu, and nothing
+    /// about them rings. Here only; nothing on the machine changes.
+    @Published var hiddenWorkspaces: [String] { didSet { d.set(hiddenWorkspaces, forKey: "hiddenWorkspaces") } }
     @Published var launchAtLogin: Bool {
         didSet {
             guard launchAtLogin != (SMAppService.mainApp.status == .enabled) else { return }
@@ -52,6 +56,13 @@ final class Preferences: ObservableObject {
         }
     }
 
+    /// Hidden by workspace id, session label, or the folder's last path component.
+    func isHidden(_ name: String?) -> Bool {
+        guard let name, !name.isEmpty, !hiddenWorkspaces.isEmpty else { return false }
+        if hiddenWorkspaces.contains(name) { return true }
+        return hiddenWorkspaces.contains((name as NSString).lastPathComponent)
+    }
+
     private init() {
         terminalChord = d.string(forKey: "terminalChord") ?? "ctrl+y"
         panelChord = d.string(forKey: "panelChord") ?? "cmd+d"
@@ -61,6 +72,7 @@ final class Preferences: ObservableObject {
         promptHotKey = d.string(forKey: "promptHotKey") ?? "ctrl+alt+p"
         nextHotKey = d.string(forKey: "nextHotKey") ?? "ctrl+alt+n"
         approveFromBar = d.bool(forKey: "approveFromBar")
+        hiddenWorkspaces = d.stringArray(forKey: "hiddenWorkspaces") ?? []
         notifications = d.object(forKey: "notifications") as? Bool ?? true
         quietHoursOn = d.object(forKey: "quietHoursOn") as? Bool ?? false
         quietStart = d.object(forKey: "quietStart") as? Int ?? 22 * 60
@@ -122,6 +134,11 @@ struct GeneralSettings: View {
             Section("Board") {
                 Toggle("Approve from the menu bar", isOn: $settings.approveFromBar)
                 Text("Shows Allow / Deny on a row waiting for permission. corgi refuses risky commands (rm, sudo, --force) unseen; go look at those.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Hidden workspaces") {
+                HiddenWorkspacesPicker()
+                Text("For showing this screen to someone: a hidden workspace's sessions, tickets, runs and remote rows leave the menu, and nothing about them rings. Here only; nothing on the machine changes.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("App") {
@@ -203,6 +220,29 @@ struct SoundPicker: View {
         }
         .onChange(of: selection) { name in
             if !name.isEmpty { NSSound(named: name)?.play() }
+        }
+    }
+}
+
+
+/// Every workspace the bar has heard of — on the board, watched, or
+/// supervised — with a switch to tuck it away.
+struct HiddenWorkspacesPicker: View {
+    @ObservedObject var settings = Preferences.shared
+    @ObservedObject var watcher = BoardWatcher.shared
+
+    var body: some View {
+        let names = watcher.knownWorkspaces
+        if names.isEmpty {
+            Text("No workspaces yet — open the menu once, then come back.").font(.caption).foregroundStyle(.secondary)
+        }
+        ForEach(names, id: \.self) { name in
+            Toggle(name, isOn: Binding(
+                get: { settings.hiddenWorkspaces.contains(name) },
+                set: { on in
+                    if on { if !settings.hiddenWorkspaces.contains(name) { settings.hiddenWorkspaces.append(name) } }
+                    else { settings.hiddenWorkspaces.removeAll { $0 == name } }
+                }))
         }
     }
 }
