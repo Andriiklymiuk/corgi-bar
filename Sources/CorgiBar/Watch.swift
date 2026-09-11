@@ -73,7 +73,7 @@ struct WatchStatus: Decodable {
             if running { return "running" }
             if let error, !error.isEmpty { return error }
             if !prs.isEmpty { return prs.count == 1 ? "opened 1 PR" : "opened \(prs.count) PRs" }
-            if let note, !note.isEmpty { return note }
+            if let note, !note.isEmpty { return note.replacingOccurrences(of: "**", with: "") }
             return "nothing opened"
         }
     }
