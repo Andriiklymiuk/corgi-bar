@@ -15,6 +15,9 @@ final class Preferences: ObservableObject {
     @Published var promptHotKey: String { didSet { d.set(promptHotKey, forKey: "promptHotKey") } }
     @Published var nextHotKey: String { didSet { d.set(nextHotKey, forKey: "nextHotKey") } }
     @Published var approveFromBar: Bool { didSet { d.set(approveFromBar, forKey: "approveFromBar") } }
+    /// Every session started from here gets a worktree of its own
+    /// (`--isolate`, corgi 2.20.8+): two never edit one checkout.
+    @Published var isolate: Bool { didSet { d.set(isolate, forKey: "isolate") } }
     @Published var notifications: Bool { didSet { d.set(notifications, forKey: "notifications"); Notifier.shared.enabled = notifications } }
     @Published var quietHoursOn: Bool { didSet { d.set(quietHoursOn, forKey: "quietHoursOn"); pushQuietHours() } }
     @Published var quietStart: Int { didSet { d.set(quietStart, forKey: "quietStart"); pushQuietHours() } }
@@ -72,6 +75,7 @@ final class Preferences: ObservableObject {
         promptHotKey = d.string(forKey: "promptHotKey") ?? "ctrl+alt+p"
         nextHotKey = d.string(forKey: "nextHotKey") ?? "ctrl+alt+n"
         approveFromBar = d.bool(forKey: "approveFromBar")
+        isolate = d.bool(forKey: "isolate")
         hiddenWorkspaces = d.stringArray(forKey: "hiddenWorkspaces") ?? []
         notifications = d.object(forKey: "notifications") as? Bool ?? true
         quietHoursOn = d.object(forKey: "quietHoursOn") as? Bool ?? false
@@ -134,6 +138,9 @@ struct GeneralSettings: View {
             Section("Board") {
                 Toggle("Approve from the menu bar", isOn: $settings.approveFromBar)
                 Text("Shows Allow / Deny on a row waiting for permission. corgi refuses risky commands (rm, sudo, --force) unseen; go look at those.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle("A worktree per session", isOn: $settings.isolate)
+                Text("+ and Work on it start the session on corgi/<ticket> in a worktree of its own, so two sessions never edit one checkout (corgi 2.20.8+). corgi worktree prune clears the finished ones.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Hidden workspaces") {

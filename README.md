@@ -154,9 +154,14 @@ including tasks of your own (`corgi agent task add`). The row is the ticket —
 click it to open it on the tracker — with **Ignore**, and **Unblock** on a
 ticket the breaker stopped after two failed runs (the reason is right there
 in red). A row that was picked says *picked from the phone · waiting for a
-session*, then names the session on it. Right-click a row or a run with a
-pull request of yours for **Ready for review**, **Merge** and **Close pull
-request**.
+session*, then names the session on it. Right-click a ticket for **Work on
+it** — a session on it in the front window, with the prompt an unattended
+run would have had — or **Work on it in a worktree of its own**; a row or a
+run with a pull request of yours has **Ready for review**, **Merge** and
+**Close pull request**. **A worktree per session** (Settings › Board, corgi
+2.20.8+) makes **+** and Work on it start every session on `corgi/<ticket>`
+in a worktree of its own, so two never edit one checkout; right-click **+**
+for one such session without the setting.
 
 **Hidden workspaces** (Settings › Board) tuck a workspace away while you show
 the screen to someone: its sessions, tickets, runs and remote rows leave the

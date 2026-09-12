@@ -130,6 +130,9 @@ struct WatchStatus: Decodable {
             return URL(string: pr)
         }
 
+        /// A ticket or a task: something Work on it can take a session to.
+        var isIssue: Bool { kind.hasPrefix("issue") || kind.hasPrefix("task") }
+
         struct SessionRef: Decodable {
             var id: String
             var label: String

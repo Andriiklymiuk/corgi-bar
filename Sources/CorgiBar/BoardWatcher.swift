@@ -123,6 +123,20 @@ final class BoardWatcher: ObservableObject {
         }
     }
 
+    /// Work on it: a real session on the ticket with the prompt an unattended
+    /// run would have had, in the front window — in a worktree of its own
+    /// when asked. The row says "picked" on the next read.
+    func workOn(_ item: WatchStatus.Item, isolate: Bool) {
+        var args = ["agent", "watch", "work", item.key, "--from", "bar"]
+        if isolate { args.append("--isolate") }
+        Corgi.shared.runInBackground(args) { [weak self] r in
+            DispatchQueue.main.async {
+                if !r.ok { Notifier.shared.say("corgi", r.stderr.isEmpty ? r.stdout : r.stderr) }
+                self?.refreshWatch()
+            }
+        }
+    }
+
     /// A pull request of mine, from the row: out of draft, merged, closed.
     /// `corgi agent watch pr` refuses one that is not mine.
     func pullRequest(_ verb: String, key: String) {

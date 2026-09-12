@@ -272,12 +272,15 @@ struct BoardView: View {
                     .onSubmit(sendPrompt)
                     .disabled(!watcher.board.daemonRunning)
                 Button {
-                    Corgi.shared.runInBackground(["agent", "new"])
+                    Corgi.shared.runInBackground(settings.isolate ? ["agent", "new", "--isolate"] : ["agent", "new"])
                 } label: {
                     Image(systemName: "plus")
                 }
                 .disabled(!watcher.board.daemonRunning || watcher.board.windows.isEmpty)
-                .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : "New session in the front window")
+                .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : settings.isolate ? "New session in the front window, in a worktree of its own" : "New session in the front window")
+                .contextMenu {
+                    Button("New session in a worktree of its own") { Corgi.shared.runInBackground(["agent", "new", "--isolate"]) }
+                }
             }
             if promptFocused {
                 Text("⏎ send · ⌥⏎ newline · \(HotKey.symbols(settings.promptHotKey))")
@@ -912,6 +915,7 @@ struct LimitBar: View {
 /// so this is where you find out.
 struct WatchView: View {
     @ObservedObject var watcher: BoardWatcher
+    @ObservedObject private var settings = Preferences.shared
     @State private var now = Date()
     private let ticker = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
@@ -1013,6 +1017,10 @@ struct WatchView: View {
                         .padding(.horizontal, 4)
                         .contextMenu {
                             if let link = item.link { Button("Open") { NSWorkspace.shared.open(link) } }
+                            if item.isIssue {
+                                Button("Work on it") { watcher.workOn(item, isolate: settings.isolate) }
+                                Button("Work on it in a worktree of its own") { watcher.workOn(item, isolate: true) }
+                            }
                             if item.blocked != nil { Button("Unblock") { watcher.unblock(item) } }
                             if let pr = item.pullRequest {
                                 Divider()
