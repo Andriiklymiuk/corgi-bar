@@ -260,6 +260,30 @@ enum Status: String, Decodable {
     }
 }
 
+/// A branch's diff against main, as the daemon measured it.
+struct SessionChanges: Decodable {
+    var files: Int
+    var lines: Int
+    var touched: [String]?
+    var at: Date?
+}
+
+/// Another session on the same files — or in the same working tree.
+struct SessionOverlap: Decodable {
+    var id: String
+    var session: String
+    var files: [String]?
+    var sameCheckout: Bool?
+}
+
+/// The last test command a session ran, and how it went.
+struct TestRun: Decodable {
+    var ok: Bool
+    var at: Date?
+    var cmd: String
+    var line: String { ok ? "tests ✓" : "tests ✗ \(cmd)" }
+}
+
 struct SessionHost: Decodable {
     var kind: String
     var windowId: String?
@@ -300,8 +324,30 @@ struct Session: Decodable, Identifiable {
     /// full, the same tool failing on repeat, a diff past its budget. Empty
     /// when there is nothing.
     var drift: [String]?
+    /// What the branch has built up since it left main; who else is on the
+    /// same files; how the last test run went.
+    var changes: SessionChanges?
+    var overlap: [SessionOverlap]?
+    var tests: TestRun?
 
     var name: String { display ?? label }
+
+    /// One line for the branch: "4 files · 120 lines".
+    var changesLine: String? {
+        guard let c = changes, c.files > 0 || c.lines > 0 else { return nil }
+        return "\(c.files) file\(c.files == 1 ? "" : "s") · \(c.lines) line\(c.lines == 1 ? "" : "s")"
+    }
+
+    /// The first other session on the same files, or the same checkout.
+    var overlapLine: String? {
+        guard let first = overlap?.first else { return nil }
+        if first.sameCheckout == true { return "same checkout as \(first.session)" }
+        let files = first.files ?? []
+        let shown = files.count > 2 ? Array(files.prefix(2)) + ["…"] : files
+        return "\(first.session) on \(shown.joined(separator: ", "))"
+    }
+
+    var isCrossing: Bool { !(overlap ?? []).isEmpty }
     /// What tells this session from its workspace siblings: the part of the
     /// display name after "label·", or the whole name when it is unique.
     var shortName: String {

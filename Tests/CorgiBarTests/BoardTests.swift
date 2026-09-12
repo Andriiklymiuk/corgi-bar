@@ -140,6 +140,33 @@ final class BoardContractTests: XCTestCase {
         XCTAssertFalse(board.sessions[3].isDrifting)
     }
 
+    // What the branch built up, who else is on its files, and the last test
+    // run: the three lines an operator reads before the diff.
+    func testDecodesChangesOverlapAndTests() throws {
+        let board = try Board.decode(Data("""
+        {"sessions":[
+          {"id":"a","label":"api","display":"api","status":"working","host":{"kind":"iterm"},
+           "changes":{"files":4,"lines":120,"touched":["registry.go","a.go"],"at":"2026-09-12T10:00:00Z"},
+           "overlap":[{"id":"b","session":"api·2","files":["registry.go","b.go","c.go"]}],
+           "tests":{"ok":false,"at":"2026-09-12T10:01:00Z","cmd":"go test"}},
+          {"id":"b","label":"api","display":"api·2","status":"working","host":{"kind":"iterm"},
+           "overlap":[{"id":"a","session":"api","sameCheckout":true}],
+           "tests":{"ok":true,"at":"2026-09-12T10:01:00Z","cmd":"bun test"}},
+          {"id":"c","label":"web","status":"done","host":{"kind":"iterm"},"changes":{"files":0,"lines":0}}]}
+        """.utf8))
+        let a = board.sessions[0]
+        XCTAssertEqual(a.changesLine, "4 files · 120 lines")
+        XCTAssertTrue(a.isCrossing)
+        XCTAssertEqual(a.overlapLine, "api·2 on registry.go, b.go, …")
+        XCTAssertEqual(a.tests?.line, "tests ✗ go test")
+        let b = board.sessions[1]
+        XCTAssertEqual(b.overlapLine, "same checkout as api")
+        XCTAssertEqual(b.tests?.line, "tests ✓")
+        XCTAssertNil(b.changesLine)
+        XCTAssertNil(board.sessions[2].changesLine, "an empty diff is no line at all")
+        XCTAssertFalse(board.sessions[2].isCrossing)
+    }
+
     // A hidden workspace leaves the board whole: its sessions, its keys, the
     // counts — by label, or by the folder's last path component.
     func testHidingAWorkspaceTakesItsSessionsAndKeys() throws {

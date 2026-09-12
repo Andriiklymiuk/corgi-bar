@@ -473,6 +473,20 @@ struct SessionRow: View {
                             .background(RoundedRectangle(cornerRadius: 3).fill(Palette.red.opacity(0.25)))
                             .help(session.driftText)
                     }
+                    // Another session on the same files: work crossing streams.
+                    if session.isCrossing, let line = session.overlapLine {
+                        Text("crossing").font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Palette.amber.opacity(0.25)))
+                            .help(line)
+                    }
+                    if let tests = session.tests {
+                        Text(tests.ok ? "✓" : "✗").font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(tests.ok ? Palette.green : Palette.red)
+                            .help(tests.line + (tests.at.map { " · " + elapsedText(since: $0, now: now) } ?? ""))
+                    }
+                    if let changes = session.changesLine {
+                        Chip(changes)
+                    }
                     if let e = session.focusError, !e.isEmpty {
                         Text("⚠").help(e)
                     }
@@ -498,6 +512,7 @@ struct SessionRow: View {
     private var secondary: String? {
         if let note = session.note, !note.isEmpty { return note }
         if let why = session.drift?.first, !why.isEmpty { return why }
+        if let line = session.overlapLine { return "⚠ " + line }
         if session.isStuck {
             return "no activity \(elapsedText(since: session.lastActivity, now: now))"
         }

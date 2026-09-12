@@ -169,3 +169,10 @@ failing on repeat, a diff far past its budget — gets a red **drift** chip with
 the reasons, and a **Fresh from a handoff** button: a clean session, same
 account, picking up from the handoff it leaves. A limited one says when the
 daemon continues it.
+
+Every working session also carries what its branch has built up — a
+*4 files · 120 lines* chip — a green ✓ or red ✗ for its last test run, and,
+when another session in the same repository is on the same files, an amber
+**crossing** chip naming it (*api·2 on registry.go*). Two sessions in one
+checkout show *same checkout as …* instead. Work crossing streams, seen on
+the bar the minute it starts rather than at merge time.
