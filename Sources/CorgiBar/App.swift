@@ -490,6 +490,16 @@ struct SessionRow: View {
                     if let changes = session.changesLine {
                         Chip(changes)
                     }
+                    // What it has cost; red once it passed its budget.
+                    if let spent = session.spendLine {
+                        if session.isOverBudget {
+                            Text("\(spent) over budget").font(.system(size: 9, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1)
+                                .background(RoundedRectangle(cornerRadius: 3).fill(Palette.red.opacity(0.25)))
+                                .help(session.cap.map { "budget \(formatTokens($0)) tokens · corgi agent cap" } ?? "corgi agent cap")
+                        } else {
+                            Chip(spent).help("tokens this session has cost, cache reads included")
+                        }
+                    }
                     if let e = session.focusError, !e.isEmpty {
                         Text("⚠").help(e)
                     }

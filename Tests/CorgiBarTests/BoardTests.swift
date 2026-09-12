@@ -148,7 +148,8 @@ final class BoardContractTests: XCTestCase {
           {"id":"a","label":"api","display":"api","status":"working","host":{"kind":"iterm"},
            "changes":{"files":4,"lines":120,"touched":["registry.go","a.go"],"at":"2026-09-12T10:00:00Z"},
            "overlap":[{"id":"b","session":"api·2","files":["registry.go","b.go","c.go"]}],
-           "tests":{"ok":false,"at":"2026-09-12T10:01:00Z","cmd":"go test"}},
+           "tests":{"ok":false,"at":"2026-09-12T10:01:00Z","cmd":"go test"},
+           "spend":{"tokens":52300000,"turns":40,"at":"2026-09-12T10:01:00Z"},"cap":50000000,"overCap":true},
           {"id":"b","label":"api","display":"api·2","status":"working","host":{"kind":"iterm"},
            "overlap":[{"id":"a","session":"api","sameCheckout":true}],
            "tests":{"ok":true,"at":"2026-09-12T10:01:00Z","cmd":"bun test"}},
@@ -159,6 +160,10 @@ final class BoardContractTests: XCTestCase {
         XCTAssertTrue(a.isCrossing)
         XCTAssertEqual(a.overlapLine, "api·2 on registry.go, b.go, …")
         XCTAssertEqual(a.tests?.line, "tests ✗ go test")
+        XCTAssertEqual(a.spendLine, "52.3M")
+        XCTAssertTrue(a.isOverBudget)
+        XCTAssertNil(board.sessions[1].spendLine)
+        XCTAssertFalse(board.sessions[1].isOverBudget)
         let b = board.sessions[1]
         XCTAssertEqual(b.overlapLine, "same checkout as api")
         XCTAssertEqual(b.tests?.line, "tests ✓")

@@ -180,4 +180,8 @@ Every working session also carries what its branch has built up — a
 when another session in the same repository is on the same files, an amber
 **crossing** chip naming it (*api·2 on registry.go*). Two sessions in one
 checkout show *same checkout as …* instead. Work crossing streams, seen on
-the bar the minute it starts rather than at merge time.
+the bar the minute it starts rather than at merge time. And what it has
+cost — a *52.3M* chip, tokens with cache reads as the account is billed —
+which turns red with **over budget** once it passes the budget
+`corgi agent cap 50M` gave every session (or `corgi agent cap <session> 20M`
+gave this one; corgi 2.20.9+). Nothing is stopped; it rings once.

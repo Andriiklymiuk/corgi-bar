@@ -276,6 +276,13 @@ struct SessionOverlap: Decodable {
     var sameCheckout: Bool?
 }
 
+/// What a session has cost so far, in tokens and turns.
+struct SessionSpend: Decodable {
+    var tokens: Int64
+    var turns: Int?
+    var at: Date?
+}
+
 /// The last test command a session ran, and how it went.
 struct TestRun: Decodable {
     var ok: Bool
@@ -329,8 +336,20 @@ struct Session: Decodable, Identifiable {
     var changes: SessionChanges?
     var overlap: [SessionOverlap]?
     var tests: TestRun?
+    /// What it has cost, the budget it runs under, and whether it passed it.
+    var spend: SessionSpend?
+    var cap: Int64?
+    var overCap: Bool?
 
     var name: String { display ?? label }
+
+    /// The cost in one word — "52.3M" — nil until the first sweep.
+    var spendLine: String? {
+        guard let spend, spend.tokens > 0 else { return nil }
+        return formatTokens(spend.tokens)
+    }
+
+    var isOverBudget: Bool { overCap == true }
 
     /// One line for the branch: "4 files · 120 lines".
     var changesLine: String? {
