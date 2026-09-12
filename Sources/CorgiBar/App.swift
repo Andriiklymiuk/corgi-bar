@@ -223,6 +223,7 @@ struct BoardView: View {
     @ObservedObject private var updates = UpdateCheck.shared
     @State private var now = Date()
     @State private var prompt = ""
+    @State private var chiefAnswer: String?
     @State private var carriedId: String?
     @FocusState private var promptFocused: Bool
     private let ticker = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
@@ -279,12 +280,30 @@ struct BoardView: View {
                 .disabled(!watcher.board.daemonRunning || watcher.board.windows.isEmpty)
                 .help(watcher.board.windows.isEmpty ? "Open a folder in VS Code with the corgi extension" : settings.isolate ? "New session in the front window, in a worktree of its own" : "New session in the front window")
                 .contextMenu {
+                    // The bots: each opens as itself, resuming its thread.
+                    ForEach(watcher.board.bots) { b in
+                        Button("Open \(b.display)") { Corgi.shared.runInBackground(["agent", "bot", "open", b.name]) }
+                    }
+                    if !watcher.board.bots.isEmpty { Divider() }
                     Button("New session in a worktree of its own") { Corgi.shared.runInBackground(["agent", "new", "--isolate"]) }
                 }
+                // Ask the chief: the question in the field, prefixed with ?
+                Button {
+                    askChief()
+                } label: {
+                    Image(systemName: "sparkles")
+                }
+                .disabled(!watcher.board.daemonRunning || prompt.trimmingCharacters(in: .whitespaces).isEmpty)
+                .help("Ask the chief about the board (corgi agent ask): what to look at first, what is blocked")
             }
             if promptFocused {
-                Text("⏎ send · ⌥⏎ newline · \(HotKey.symbols(settings.promptHotKey))")
+                Text("⏎ send · ⌥⏎ newline · ✦ ask the chief · \(HotKey.symbols(settings.promptHotKey))")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+            if let a = chiefAnswer {
+                Text(a).font(.system(size: 11)).foregroundStyle(.secondary).textSelection(.enabled)
+                    .padding(8).background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+                    .onTapGesture { chiefAnswer = nil }
             }
         }
     }
@@ -338,9 +357,29 @@ struct BoardView: View {
         return "Prompt"
     }
 
+    /// One question about the board, answered by a short claude on this
+    /// machine (corgi agent ask, 2.20.13). The field's text is the question.
+    private func askChief() {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        chiefAnswer = "thinking…"
+        prompt = ""
+        Corgi.shared.runInBackground(["agent", "ask", text]) { r in
+            DispatchQueue.main.async {
+                chiefAnswer = r.ok ? r.stdout.trimmingCharacters(in: .whitespacesAndNewlines) : "could not ask: \(r.stderr.isEmpty ? r.stdout : r.stderr)"
+            }
+        }
+    }
+
     private func sendPrompt() {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        // A question mark at the end, and nothing selected to type into:
+        // that is a question for the chief, not a prompt for a session.
+        if text.hasSuffix("?") && talk.target() == nil {
+            askChief()
+            return
+        }
         guard let session = talk.target() else {
             talk.lastError = "no Claude Code session to send to"
             return
@@ -459,7 +498,13 @@ struct SessionRow: View {
             Circle().fill(color).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text(session.title ?? session.shortName).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    // A bot's session wears the bot's colour and name.
+                    if let bot = board.bots.first(where: { $0.name == session.bot }) {
+                        Circle().fill(BotPalette.color(bot.color)).frame(width: 8, height: 8)
+                        Text(bot.display).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    } else {
+                        Text(session.title ?? session.shortName).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    }
                     if let title = session.title, session.shortName != session.label, session.shortName != title {
                         Chip(session.shortName)
                     }
@@ -1119,4 +1164,21 @@ func elapsedSince(_ start: Date?, now: Date) -> String {
     if minutes < 60 { return "\(minutes)m" }
     let rest = minutes % 60
     return rest == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(rest)m"
+}
+
+
+/// The hues corgi agent bot --color names.
+enum BotPalette {
+    static func color(_ name: String?) -> Color {
+        switch name {
+        case "orange": return Color(red: 0.91, green: 0.51, blue: 0.29)
+        case "teal": return Color(red: 0.25, green: 0.72, blue: 0.66)
+        case "pink": return Color(red: 0.88, green: 0.40, blue: 0.55)
+        case "green": return Color(red: 0.30, green: 0.69, blue: 0.44)
+        case "amber": return Color(red: 0.85, green: 0.65, blue: 0.23)
+        case "blue": return Color(red: 0.29, green: 0.54, blue: 0.91)
+        case "red": return Color(red: 0.85, green: 0.34, blue: 0.34)
+        default: return Color(red: 0.37, green: 0.42, blue: 0.82)
+        }
+    }
 }

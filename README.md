@@ -19,6 +19,13 @@ go there.
 
 <p align="center"><img src="docs/media/story.gif" width="400" alt="A session asks for permission, Allow is pressed in the menu bar, the session finishes"></p>
 
+**Bots** (corgi 2.20.13, `corgi agent bot add …`): right-click **+** for
+*Open Code Reviewer* and the rest — each starts in its workspace, as its
+persona, resuming its last conversation; a bot's row wears its colour and
+name. **Ask the chief**: type a question in the prompt field and press ✦ (or
+end it with `?` with no session selected) — *what should I look at first?* —
+and `corgi agent ask` answers under the field in a few lines.
+
 Click a row to jump to its window and terminal tab. Right-click for
 Interrupt on a working row (Escape, as you would press it: the turn stops,
 the session waits; corgi 2.20.10+), Dismiss, Pin, Compact context, Mute,

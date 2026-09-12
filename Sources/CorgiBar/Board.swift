@@ -112,6 +112,15 @@ struct Board: Decodable {
         path.map { ($0 as NSString).deletingLastPathComponent }
     }
 
+    /// The bots on this machine (corgi agent bot): read beside the board.
+    var bots: [Bot] {
+        guard let dir = agentDir, let data = FileManager.default.contents(atPath: dir + "/bots.json") else { return [] }
+        struct Store: Decodable { var bots: [Bot] }
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
+        return (try? dec.decode(Store.self, from: data))?.bots ?? []
+    }
+
     /// The session a "next needs you" key jumps to: the one that has waited
     /// longest, else the one in front.
     func nextNeedingYou() -> Session? {
@@ -276,6 +285,21 @@ struct SessionOverlap: Decodable {
     var sameCheckout: Bool?
 }
 
+/// A named session you come back to: corgi agent bot. The soul is on the
+/// machine; the bar shows the name and the colour, and opens it.
+struct Bot: Decodable, Identifiable, Hashable {
+    var name: String
+    var title: String?
+    var workspace: String
+    var model: String?
+    var profile: String?
+    var isolate: Bool?
+    var color: String?
+    var lastSession: String?
+    var id: String { name }
+    var display: String { (title?.isEmpty == false ? title : nil) ?? name }
+}
+
 /// What a session has cost so far, in tokens and turns.
 struct SessionSpend: Decodable {
     var tokens: Int64
@@ -340,6 +364,8 @@ struct Session: Decodable, Identifiable {
     var spend: SessionSpend?
     var cap: Int64?
     var overCap: Bool?
+    /// The bot this session runs as.
+    var bot: String?
 
     var name: String { display ?? label }
 
