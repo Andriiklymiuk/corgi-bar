@@ -571,6 +571,11 @@ struct SessionRow: View {
     }
 
     @ViewBuilder private var menu: some View {
+        // Escape, as you would press it: the turn stops, the session waits.
+        if session.status == .working {
+            Button("Interrupt") { Corgi.shared.runInBackground(["agent", "interrupt", session.id]) }
+            Divider()
+        }
         Button("Dismiss") { Corgi.shared.runInBackground(["agent", "dismiss", session.id]) }
             .disabled(!session.status.isFinished)
         if let key = board.keyNumber(of: session.id) {

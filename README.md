@@ -19,8 +19,10 @@ go there.
 
 <p align="center"><img src="docs/media/story.gif" width="400" alt="A session asks for permission, Allow is pressed in the menu bar, the session finishes"></p>
 
-Click a row to jump to its window and terminal tab. Right-click for Dismiss,
-Pin, Compact context, Mute, Copy id, Open in Finder.
+Click a row to jump to its window and terminal tab. Right-click for
+Interrupt on a working row (Escape, as you would press it: the turn stops,
+the session waits; corgi 2.20.10+), Dismiss, Pin, Compact context, Mute,
+Copy id, Open in Finder.
 
 **Allow** and **Deny** show on a row that waits for a permission prompt. Turn
 this on in Settings (Approve from the menu bar). Risky commands (`rm -rf`,
